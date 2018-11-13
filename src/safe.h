@@ -1,7 +1,7 @@
 /*
  * safe.h
  *
- *  Created on: Sep 30, 2018
+ *  Created on: Sep 21, 2018
  *      Author: lcc
  */
 
@@ -11,92 +11,58 @@
 #include <mutex>
 
 namespace safe {
-	template<typename ValueType, typename LockableType = std::mutex>
-	class LockGuarded
-	{
-	public:
-		LockGuarded(ValueType& ref, LockableType& lockable):
-			m_ptr(&ref),
-			m_lock(lockable)
-		{}
+  template<typename ValueType, typename LockableType = std::mutex>
+  class SafeGuard
+  {
+  public:
+    SafeGuard(ValueType& ref, LockableType& lockable);
 
-		ValueType* operator->()
-		{
-			return m_ptr;
-		}
+    const ValueType* operator->() const noexcept;
+    ValueType* operator->() noexcept;
+    const ValueType& operator*() const noexcept;
+    ValueType& operator*() noexcept;
 
-	private:
-		ValueType* m_ptr;
-		std::lock_guard<LockableType> m_lock;
-	};
-	template<typename ValueType, typename LockableType = std::mutex>
-	class UniqueLocked
-	{
-	public:
-		UniqueLocked(ValueType& ref, LockableType& lockable):
-			m_ptr(&ref),
-			m_lock(lockable)
-		{}
+  private:
+    std::unique_lock<LockableType> m_guard;
+    ValueType& m_value;
+  };
 
-		ValueType* operator->()
-		{
-			return m_ptr;
-		}
+  template<typename ValueType, typename LockableType = std::mutex>
+  class SafeLock
+  {
+  public:
+    SafeLock(ValueType& ref, LockableType& lockable);
 
-		operator std::unique_lock<LockableType>&()
-		{
-			return m_lock;
-		}
+    const ValueType* operator->() const noexcept;
+    ValueType* operator->() noexcept;
+    const ValueType& operator*() const noexcept;
+    ValueType& operator*() noexcept;
 
-		void lock()
-		{
-			m_lock.lock();
-		}
-		bool try_lock()
-		{
-			return m_lock.try_lock();
-		}
-		void unlock()
-		{
-			m_lock.unlock();
-		}
+    std::unique_lock<LockableType> lock;
+  private:
+    ValueType& m_value;
+  };
 
-	private:
-		ValueType* m_ptr;
-		std::unique_lock<LockableType> m_lock;
-	};
+  template<typename ValueType, typename LockableType = std::mutex>
+  struct Safe
+  {
+  public:
+  	using Guard = SafeGuard<ValueType, LockableType>;
+  	using Lock = SafeLock<ValueType, LockableType>;
 
-	template<typename ValueType, typename LockableType = std::mutex>
-	class Safe
-	{
-	public:
-		Safe(ValueType& ref, LockableType& lockable):
-			m_ref(ref),
-			m_lockable(lockable)
-		{}
+    template<typename... Args>
+    Safe(LockableType& lockable, Args&&... args);
 
-		ValueType& unsafe()
-		{
-			return m_ref;
-		}
-		LockGuarded<ValueType, LockableType> lockGuard()
-		{
-			return {m_ref, m_lockable};
-		}
-		UniqueLocked<ValueType, LockableType> uniqueLock()
-		{
-			return UniqueLocked<ValueType, LockableType>(m_ref, m_lockable);
-		}
+    SafeGuard<const ValueType, LockableType> lock_guard() const;
+    SafeGuard<ValueType, LockableType> lock_guard();
+    SafeLock<const ValueType, LockableType> unique_lock() const;
+    SafeLock<ValueType, LockableType> unique_lock();
 
-		operator LockableType&()
-		{
-			return m_lockable;
-		}
-
-	private:
-		ValueType& m_ref;
-		LockableType& m_lockable;
-	};
+  private:
+    LockableType& lockable;
+  public:
+    ValueType value;
+  };
 }  // namespace safe
 
 #endif /* SAFE_H_ */
