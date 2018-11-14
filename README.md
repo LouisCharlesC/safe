@@ -1,6 +1,6 @@
 # Safe
 ## Overview
-Small wrapper around a lockable object (typically a std::mutex) and a value to protect with the lockable. The Safe class hides the value until one of two locking functions is called:
+Small wrapper around a value object and the lockable object (typically a std::mutex) that protects it for multi-threaded access. The Safe class hides the value until one of two locking functions is called:
 1. Safe::lock_guard() yields a SafeGuard object which acts exactly like std::lock_guard (RAII for a lockable object, without the possibility to unlock it during the lock_guard's lifetime) and also is a handle to the protected value. You access the value with operator*() and operator->().
 2. Safe::unique_lock() yields a SafeLock object which acts exactly like std::unique_lock (RAII for a lockable object, but with the possibility to unlock and relock at will) and also is a handle to the protected value. You access the value with operator*() and operator->(). You access the lock direcly, it is a public member of SafeLock.
 
