@@ -8,7 +8,7 @@ Small wrapper around a lockable object (typically a std::mutex) and a value to p
 1. The primary use of Safe is to carry both a value that must be protected with the lockable object that protects it. The lockable object is typically unlocked until the value needs to be accessed. This way,
     * Safe makes it harder to forget to lock before fiddling with the value, because the value cannot be accessed directly: a locking function must be called first.
     * Safe also makes intent clearer: when you provide a Safe (that is, both a value and a lockable tied together), you explicitely tell which values are protected by a lockable object and which are not. Protected values are inside the Safe, unprotected ones are outside!
-2. It can also be useful to provide an already locked Safe (either a SafeGuard or a SafeLock) if a value needs to be protected and you want to allow a client to act on it, but you do not know exactly what the client might want to do. If you provide the client with a SafeGuard, you effectively provide an unconstrained but protected interface to the value. Of course, it is the responsability of the client to destroy the SafeGuard as soon as possible so that the lockable gets unlocked.
+2. It can also be useful to provide an already locked Safe (either a SafeGuard or a SafeLock) if a value needs to be protected and you want to allow a client to act on it, but you do not know exactly what the client might want to do. If you provide the client with a SafeGuard, you effectively provide unconstrained but protected access to the value. Of course, it is the responsability of the client to destroy the SafeGuard as soon as possible so that the lockable gets unlocked.
 
 ## Example
 ```cpp
