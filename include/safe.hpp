@@ -133,12 +133,12 @@ namespace safe
 		lockable(std::forward<LockableArg>(lockableArg)),
 		m_value(std::forward<ValueArgs>(valueArgs)...)
   {}
-  template<typename ValueType, typename LockableType>
-  template<typename... ValueArgs>
-  Safe<ValueType, LockableType>::Safe(default_constructed_lockable, ValueArgs&&... valueArgs):
-		lockable(),
-		m_value(std::forward<ValueArgs>(valueArgs)...)
-  {}
+  // template<typename ValueType, typename LockableType>
+  // template<typename... ValueArgs>
+  // Safe<ValueType, LockableType>::Safe(default_construct_lockable, ValueArgs&&... valueArgs):
+	// 	lockable(),
+	// 	m_value(std::forward<ValueArgs>(valueArgs)...)
+  // {}
 
   template<typename ValueType, typename LockableType>
   typename Safe<ValueType, LockableType>::ConstGuard Safe<ValueType, LockableType>::constGuard() const

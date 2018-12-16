@@ -26,7 +26,7 @@ namespace safe
 	template<typename ValueType, typename LockableType = std::mutex>
 	class Safe
 	{
-		struct default_construct_lockable {};
+		// struct default_construct_lockable {};
 
 	public:
 		/**
@@ -269,15 +269,15 @@ namespace safe
 		 */
 		template<typename LockableArg, typename... ValueArgs>
 		Safe(LockableArg&& lockableArg, ValueArgs&&... valueArgs);
-		/**
-		 * @brief Construct.
-		 * 
-		 * @tparam ValueArgs Perfect forwarding types to construct the value.
-		 * @param tag Indicates that the lockable object should be default constructed.
-		 * @param valueArgs Perfect forwarding arguments to construc the value.
-		 */
-		template<typename... ValueArgs>
-		Safe(default_constructed_lockable tag, ValueArgs&&... valueArgs);
+		// /**
+		//  * @brief Construct.
+		//  * 
+		//  * @tparam ValueArgs Perfect forwarding types to construct the value.
+		//  * @param tag Indicates that the lockable object should be default constructed.
+		//  * @param valueArgs Perfect forwarding arguments to construc the value.
+		//  */
+		// template<typename... ValueArgs>
+		// Safe(default_construct_lockable tag, ValueArgs&&... valueArgs);
 
 		/**
 		 * @brief %Safe access to the protected value through a ConstGuard object.
@@ -330,7 +330,7 @@ namespace safe
 		ValueType& unsafe();
 
 			/// The lockable object that protects the value.
-		LockableType lockable;
+		LockableType& lockable;
 	private:
 			/// The value to protect.
 		ValueType m_value;

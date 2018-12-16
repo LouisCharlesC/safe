@@ -73,7 +73,15 @@ TEST_F(SafeTest, MutexValueConstructor) {
 	EXPECT_EQ(&safeValue.lockable, &mutex);
 }
 
-TEST_F(SafeTest, MutexRefConstructor) {
+// TEST_F(SafeTest, MutexRefValueConstructor) {
+// 	SafeValueType safeValue(mutex, value);
+
+// 	EXPECT_EQ(safeValue.unsafe(), value);
+// 	EXPECT_EQ(&static_cast<const SafeValueType&>(safeValue).unsafe(), &safeValue.unsafe());
+// 	EXPECT_EQ(&safeValue.lockable, &mutex);
+// }
+
+TEST_F(SafeTest, MutexValueRefConstructor) {
 	SafeRefType safeRef(mutex, value);
 
 	EXPECT_EQ(&safeRef.unsafe(), &value);
