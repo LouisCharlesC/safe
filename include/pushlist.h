@@ -5,8 +5,8 @@
  *      Author: lcc
  */
 
-#ifndef LFFL_H_
-#define LFFL_H_
+#ifndef PUSH_LIST_H_
+#define PUSH_LIST_H_
 
 #include <atomic>
 #include <iterator>
@@ -15,7 +15,7 @@
 
 namespace safe {
 	template<typename ValueType>
-	class LFFList
+	class PushList
 	{
 		class Node {
 		public:
@@ -53,7 +53,6 @@ namespace safe {
 	    	m_node(nullptr)
 	    {}
 
-	    // Forward iterator requirements
 	    reference operator*() const noexcept
 	    {
 	    	return m_node->value;
@@ -117,7 +116,6 @@ namespace safe {
 	    	m_node(nullptr)
 	    {}
 
-	    // Forward iterator requirements
 	    reference operator*() const noexcept
 	    {
 	    	return m_node->value;
@@ -189,11 +187,11 @@ namespace safe {
 			}
 		};
 
-		LFFList():
+		PushList():
 			m_begin(nullptr)
 		{}
 
-		~LFFList()
+		~PushList()
 		{
 			delete m_begin.load();
 		}
@@ -209,6 +207,11 @@ namespace safe {
 				node->next.reset(ptr);
 			}
 			return {node};
+		}
+
+		bool empty() const
+		{
+			return m_begin == nullptr;
 		}
 
 		ConstIterator cbegin() const
@@ -245,4 +248,4 @@ namespace safe {
 	};
 }  // namespace safe
 
-#endif /* LFFL_H_ */
+#endif /* PUSH_LIST_H_ */

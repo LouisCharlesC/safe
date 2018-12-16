@@ -10,7 +10,8 @@
 
 #include <mutex>
 
-namespace safe {
+namespace safe
+{
 	/**
 	 * @brief A class that wraps a value and a lockable
 	 * object to protect the value.
@@ -25,6 +26,8 @@ namespace safe {
 	template<typename ValueType, typename LockableType = std::mutex>
 	class Safe
 	{
+		struct default_construct_lockable {};
+
 	public:
 		/**
 		 * @brief A class that gives const access to a value and protects
@@ -202,9 +205,7 @@ namespace safe {
 		 * Instances of this class cannot be copied around and transfered 
 		 * from a scope to another due to the std::lock_guard member variable.
 		 * This is the intended behavior although it makes certain operations
-		 * harder, like returning a ConstGuard object. The two way I know you
-		 * can transfer a ConstGuard object is by returning by list-initialization
-		 * and passing to a function by rvalue reference.
+		 * harder, like returning a ConstGuard object.
 		 */
 		class Guard
 		{
@@ -262,12 +263,21 @@ namespace safe {
 		/**
 		 * @brief Construct.
 		 * 
-		 * @tparam ValueArgs Perfect forwarding types for to construct the value.
+		 * @tparam ValueArgs Perfect forwarding types to construct the value.
 		 * @param lockable The lockable object.
 		 * @param valueArgs Perfect forwarding arguments to construc the value.
 		 */
+		template<typename LockableArg, typename... ValueArgs>
+		Safe(LockableArg&& lockableArg, ValueArgs&&... valueArgs);
+		/**
+		 * @brief Construct.
+		 * 
+		 * @tparam ValueArgs Perfect forwarding types to construct the value.
+		 * @param tag Indicates that the lockable object should be default constructed.
+		 * @param valueArgs Perfect forwarding arguments to construc the value.
+		 */
 		template<typename... ValueArgs>
-		Safe(LockableType& lockable, ValueArgs&&... valueArgs);
+		Safe(default_constructed_lockable tag, ValueArgs&&... valueArgs);
 
 		/**
 		 * @brief %Safe access to the protected value through a ConstGuard object.
@@ -320,9 +330,9 @@ namespace safe {
 		ValueType& unsafe();
 
 			/// The lockable object that protects the value.
-		LockableType& lockable;
+		LockableType lockable;
 	private:
-			/// The protected value.
+			/// The value to protect.
 		ValueType m_value;
 	};
 }  // namespace safe
