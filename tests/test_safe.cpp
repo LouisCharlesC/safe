@@ -23,14 +23,15 @@ class SafeTest : public testing::Test {
 public:
 	using ValueType = int;
 
-	using SafeValueType = safe::Safe<ValueType, MockMutex>;
-	using SafeRefType = safe::Safe<ValueType&, MockMutex>;
-	using SafeConstValueType = safe::Safe<const ValueType, MockMutex>;
+	using SafeMutexRefValueType = safe::Safe<ValueType, MockMutex&>;
+	using SafeMutexValueType = safe::Safe<ValueType, MockMutex>;
+	using SafeMutexRefValueRefType = safe::Safe<ValueType&, MockMutex&>;
+	using SafeMutexRefConstValueType = safe::Safe<const ValueType, MockMutex&>;
 
-	using GuardType = SafeValueType::Guard;
-	using ConstGuardType = SafeValueType::ConstGuard;
-	using LockType = SafeValueType::Lock;
-	using ConstLockType = SafeValueType::ConstLock;
+	using ValueGuardType = SafeMutexRefValueType::Guard;
+	using ValueConstGuardType = SafeMutexRefValueType::SharedGuard;
+	using ValueLockType = SafeMutexRefValueType::Lock;
+	using ValueConstLockType = SafeMutexRefValueType::SharedLock;
 
 	void setUnlockOnlyCallExpectations()
 	{
@@ -65,32 +66,31 @@ void checkValueAccessors(ConstOrNotGuardOrLock&& guardOrLock, const int& value)
 	EXPECT_EQ(guardOrLock.operator->(), &value);
 }
 
-TEST_F(SafeTest, MutexValueConstructor) {
-	SafeValueType safeValue(mutex, value);
+TEST_F(SafeTest, MutexRefValueConstructor) {
+	SafeMutexRefValueType safeValue(mutex, value);
 
 	EXPECT_EQ(safeValue.unsafe(), value);
-	EXPECT_EQ(&static_cast<const SafeValueType&>(safeValue).unsafe(), &safeValue.unsafe());
+	EXPECT_EQ(&static_cast<const SafeMutexRefValueType&>(safeValue).unsafe(), &safeValue.unsafe());
 	EXPECT_EQ(&safeValue.lockable, &mutex);
 }
 
-// TEST_F(SafeTest, MutexRefValueConstructor) {
-// 	SafeValueType safeValue(mutex, value);
+TEST_F(SafeTest, MutexValueConstructor) {
+	SafeMutexValueType safeValue(safe::default_construct_lockable(), value);
 
-// 	EXPECT_EQ(safeValue.unsafe(), value);
-// 	EXPECT_EQ(&static_cast<const SafeValueType&>(safeValue).unsafe(), &safeValue.unsafe());
-// 	EXPECT_EQ(&safeValue.lockable, &mutex);
-// }
+	EXPECT_EQ(safeValue.unsafe(), value);
+	EXPECT_EQ(&static_cast<const SafeMutexValueType&>(safeValue).unsafe(), &safeValue.unsafe());
+}
 
-TEST_F(SafeTest, MutexValueRefConstructor) {
-	SafeRefType safeRef(mutex, value);
+TEST_F(SafeTest, MutexRefValueRefConstructor) {
+	SafeMutexRefValueRefType safeRef(mutex, value);
 
 	EXPECT_EQ(&safeRef.unsafe(), &value);
-	EXPECT_EQ(&static_cast<const SafeRefType&>(safeRef).unsafe(), &safeRef.unsafe());
+	EXPECT_EQ(&static_cast<const SafeMutexRefValueRefType&>(safeRef).unsafe(), &safeRef.unsafe());
 	EXPECT_EQ(&safeRef.lockable, &mutex);
 }
 
 TEST_F(SafeTest, FunctionGuard) {
-	SafeValueType safeValue(mutex, value);
+	SafeMutexRefValueType safeValue(mutex, value);
 
 	setLockUnlockCallExpectations();
 	checkValueAccessors(safeValue.guard(), safeValue.unsafe());
@@ -98,21 +98,21 @@ TEST_F(SafeTest, FunctionGuard) {
 
 TEST_F(SafeTest, ConstFunctionGuard) {
 
-	const SafeValueType safeValue(mutex, value);
+	const SafeMutexRefValueType safeValue(mutex, value);
 	
 	setLockUnlockCallExpectations();
 	checkValueAccessors(safeValue.guard(), safeValue.unsafe());
 }
 
 TEST_F(SafeTest, FunctionConstGuard) {
-	SafeValueType safeValue(mutex, value);
+	SafeMutexRefValueType safeValue(mutex, value);
 
 	setLockUnlockCallExpectations();
-	checkValueAccessors(safeValue.constGuard(), safeValue.unsafe());
+	checkValueAccessors(safeValue.sharedGuard(), safeValue.unsafe());
 }
 
 TEST_F(SafeTest, FunctionLock) {
-	SafeValueType safeValue(mutex, value);
+	SafeMutexRefValueType safeValue(mutex, value);
 
 	setLockUnlockCallExpectations();
 
@@ -124,7 +124,7 @@ TEST_F(SafeTest, FunctionLock) {
 }
 
 TEST_F(SafeTest, ConstFunctionLock) {
-	const SafeValueType safeValue(mutex, value);
+	const SafeMutexRefValueType safeValue(mutex, value);
 
 	setLockUnlockCallExpectations();
 
@@ -136,11 +136,11 @@ TEST_F(SafeTest, ConstFunctionLock) {
 }
 
 TEST_F(SafeTest, FunctionConstLock) {
-	SafeValueType safeValue(mutex, value);
+	SafeMutexRefValueType safeValue(mutex, value);
 
 	setLockUnlockCallExpectations();
 
-	const auto lock = safeValue.constLock();
+	const auto lock = safeValue.sharedLock();
 
 	checkValueAccessors(lock, safeValue.unsafe());
 	EXPECT_EQ(lock.lock.mutex(), &mutex);
@@ -150,7 +150,7 @@ TEST_F(SafeTest, FunctionConstLock) {
 TEST_F(LockTest, MutexValueConstructor) {
 	setLockUnlockCallExpectations();
 
-	const LockType lock(mutex, value);
+	const ValueLockType lock(mutex, value);
 
 	checkValueAccessors(lock, value);
 	EXPECT_EQ(lock.lock.mutex(), &mutex);
@@ -160,7 +160,7 @@ TEST_F(LockTest, MutexValueConstructor) {
 TEST_F(LockTest, MutexValueAdoptLockConstructor) {
 	setUnlockOnlyCallExpectations();
 
-	const LockType lock(mutex, value, std::adopt_lock_t());
+	const ValueLockType lock(mutex, value, std::adopt_lock_t());
 
 	checkValueAccessors(lock, value);
 	EXPECT_EQ(lock.lock.mutex(), &mutex);
@@ -170,14 +170,14 @@ TEST_F(LockTest, MutexValueAdoptLockConstructor) {
 TEST_F(LockTest, MutexValueTryToLockConstructor) {
 	setTryLockOnlyCallExpectations();
 
-	const LockType lock(mutex, value, std::try_to_lock_t());
+	const ValueLockType lock(mutex, value, std::try_to_lock_t());
 
 	checkValueAccessors(lock, value);
 	EXPECT_EQ(lock.lock.mutex(), &mutex);
 }
 
 TEST_F(LockTest, MutexValueDeferLockConstructor) {
-	const LockType lock(mutex, value, std::defer_lock_t());
+	const ValueLockType lock(mutex, value, std::defer_lock_t());
 	
 	checkValueAccessors(lock, value);
 	EXPECT_EQ(lock.lock.mutex(), &mutex);
@@ -187,7 +187,7 @@ TEST_F(LockTest, MutexValueDeferLockConstructor) {
 TEST_F(ConstLockTest, MutexValueConstructor) {
 	setLockUnlockCallExpectations();
 
-	const ConstLockType lock(mutex, value);
+	const ValueConstLockType lock(mutex, value);
 
 	checkValueAccessors(lock, value);
 	EXPECT_EQ(lock.lock.mutex(), &mutex);
@@ -197,7 +197,7 @@ TEST_F(ConstLockTest, MutexValueConstructor) {
 TEST_F(ConstLockTest, MutexValueAdoptLockConstructor) {
 	setUnlockOnlyCallExpectations();
 
-	const ConstLockType lock(mutex, value, std::adopt_lock_t());
+	const ValueConstLockType lock(mutex, value, std::adopt_lock_t());
 
 	checkValueAccessors(lock, value);
 	EXPECT_EQ(lock.lock.mutex(), &mutex);
@@ -207,14 +207,14 @@ TEST_F(ConstLockTest, MutexValueAdoptLockConstructor) {
 TEST_F(ConstLockTest, MutexValueTryToLockConstructor) {
 	setTryLockOnlyCallExpectations();
 
-	const ConstLockType lock(mutex, value, std::try_to_lock_t());
+	const ValueConstLockType lock(mutex, value, std::try_to_lock_t());
 
 	checkValueAccessors(lock, value);
 	EXPECT_EQ(lock.lock.mutex(), &mutex);
 }
 
 TEST_F(ConstLockTest, MutexValueDeferLockConstructor) {
-	const ConstLockType lock(mutex, value, std::defer_lock_t());
+	const ValueConstLockType lock(mutex, value, std::defer_lock_t());
 	
 	checkValueAccessors(lock, value);
 	EXPECT_EQ(lock.lock.mutex(), &mutex);
@@ -224,7 +224,7 @@ TEST_F(ConstLockTest, MutexValueDeferLockConstructor) {
 TEST_F(GuardTest, MutexValueConstructor) {
 	setLockUnlockCallExpectations();
 
-	const GuardType guard(mutex, value);
+	const ValueGuardType guard(mutex, value);
 
 	checkValueAccessors(guard, value);
 }
@@ -232,7 +232,7 @@ TEST_F(GuardTest, MutexValueConstructor) {
 TEST_F(GuardTest, MutexValueAdoptConstructor) {
 	setUnlockOnlyCallExpectations();
 
-	const GuardType guard(mutex, value, std::adopt_lock_t());
+	const ValueGuardType guard(mutex, value, std::adopt_lock_t());
 
 	checkValueAccessors(guard, value);
 }
@@ -240,7 +240,7 @@ TEST_F(GuardTest, MutexValueAdoptConstructor) {
 TEST_F(ConstGuardTest, MutexValueConstructor) {
 	setLockUnlockCallExpectations();
 
-	const ConstGuardType guard(mutex, value);
+	const ValueConstGuardType guard(mutex, value);
 
 	checkValueAccessors(guard, value);
 }
@@ -248,7 +248,7 @@ TEST_F(ConstGuardTest, MutexValueConstructor) {
 TEST_F(ConstGuardTest, MutexValueAdoptConstructor) {
 	setUnlockOnlyCallExpectations();
 
-	const ConstGuardType guard(mutex, value, std::adopt_lock_t());
+	const ValueConstGuardType guard(mutex, value, std::adopt_lock_t());
 
 	checkValueAccessors(guard, value);
 }

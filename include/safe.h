@@ -9,9 +9,12 @@
 #define SAFE_H_
 
 #include <mutex>
+#include <type_traits>
 
 namespace safe
 {
+	struct default_construct_lockable {};
+
 	/**
 	 * @brief A class that wraps a value and a lockable
 	 * object to protect the value.
@@ -26,14 +29,12 @@ namespace safe
 	template<typename ValueType, typename LockableType = std::mutex>
 	class Safe
 	{
-		// struct default_construct_lockable {};
-
 	public:
 		/**
 		 * @brief A class that gives const access to a value and protects
 		 * it using a std::unique_lock.
 		 */
-		class ConstLock
+		class SharedLock
 		{
 		public:
 			/**
@@ -45,9 +46,9 @@ namespace safe
 			 * @param[in] lockable The lockable object.
 			 * @param[in] value The protected value.
 			 */
-			ConstLock(LockableType& lockable, const ValueType& value);
+			SharedLock(LockableType& lockable, const ValueType& value);
 			/**
-			 * @brief Construct a new ConstLock object applying the specified
+			 * @brief Construct a new SharedLock object applying the specified
 			 * locking policy.
 			 * 
 			 * @pre When LockPolicy is std::adopt_lock_t, lockable must be locked. When
@@ -62,7 +63,7 @@ namespace safe
 			 * @param[in] tag Dictates the locking policy to apply.
 			 */
 			template<typename LockPolicy>
-			ConstLock(LockableType& lockable, const ValueType& value, LockPolicy tag);
+			SharedLock(LockableType& lockable, const ValueType& value, LockPolicy tag);
 
 			/**
 			 * @brief Const accessor function.
@@ -78,7 +79,7 @@ namespace safe
 			const ValueType& operator*() const noexcept;
 
 			/// The std::unique_lock that manages the lockable object.
-			std::unique_lock<LockableType> lock;
+			std::unique_lock<typename std::remove_reference<LockableType>::type> lock;
 		private:
 			/// The protected value.
 			const ValueType& m_value;
@@ -140,7 +141,7 @@ namespace safe
 			ValueType& operator*() noexcept;
 
 			/// The std::unique_lock that manages the lockable object.
-			std::unique_lock<LockableType> lock;
+			std::unique_lock<typename std::remove_reference<LockableType>::type> lock;
     private:
 			/// The protected value.
 			ValueType& m_value;
@@ -153,11 +154,11 @@ namespace safe
 		 * Instances of this class cannot be copied around and transfered 
 		 * from a scope to another due to the std::lock_guard member variable.
 		 * This is the intended behavior although it makes certain operations
-		 * harder, like returning a ConstGuard object. The two way I know you
-		 * can transfer a ConstGuard object is by returning by list-initialization
+		 * harder, like returning a SharedGuard object. The two way I know you
+		 * can transfer a SharedGuard object is by returning by list-initialization
 		 * and passing to a function by rvalue reference.
 		 */
-		class ConstGuard
+		class SharedGuard
 		{
 		public:
 			/**
@@ -169,9 +170,9 @@ namespace safe
 			 * @param lockable The lockable object
 			 * @param value The protected value
 			 */
-			ConstGuard(LockableType& lockable, const ValueType& value);
+			SharedGuard(LockableType& lockable, const ValueType& value);
 			/**
-			 * @brief Construct a new ConstGuard object from a locked lockable.
+			 * @brief Construct a new SharedGuard object from a locked lockable.
 			 * 
 			 * @pre lockable must be locked
 			 * 
@@ -179,7 +180,7 @@ namespace safe
 			 * @param value The protected value
 			 * @param tag An instance of std::adopt_lock_t
 			 */
-			ConstGuard(LockableType& lockable, const ValueType& value, std::adopt_lock_t tag);
+			SharedGuard(LockableType& lockable, const ValueType& value, std::adopt_lock_t tag);
 
 			/**
 			 * @brief Const accessor functions.
@@ -194,7 +195,7 @@ namespace safe
 
 		private:
 			/// The std::lock_guard that manages the lockable object.
-			const std::lock_guard<LockableType> m_guard;
+			const std::lock_guard<typename std::remove_reference<LockableType>::type> m_guard;
 			/// The protected value.
 			const ValueType& m_value;
 		};
@@ -205,7 +206,7 @@ namespace safe
 		 * Instances of this class cannot be copied around and transfered 
 		 * from a scope to another due to the std::lock_guard member variable.
 		 * This is the intended behavior although it makes certain operations
-		 * harder, like returning a ConstGuard object.
+		 * harder, like returning a SharedGuard object.
 		 */
 		class Guard
 		{
@@ -221,7 +222,7 @@ namespace safe
 			 */
 			Guard(LockableType& lockable, ValueType& value);
 			/**
-			 * @brief Construct a new ConstGuard object from a locked lockable.
+			 * @brief Construct a new SharedGuard object from a locked lockable.
 			 * 
 			 * @pre lockable must be locked
 			 * 
@@ -255,7 +256,7 @@ namespace safe
 
 		private:
 			/// The std::lock_guard that manages the lockable object.
-      const std::lock_guard<LockableType> m_guard;
+      const std::lock_guard<typename std::remove_reference<LockableType>::type> m_guard;
 			/// The protected value.
 			ValueType& m_value;
 		};
@@ -269,28 +270,28 @@ namespace safe
 		 */
 		template<typename LockableArg, typename... ValueArgs>
 		Safe(LockableArg&& lockableArg, ValueArgs&&... valueArgs);
-		// /**
-		//  * @brief Construct.
-		//  * 
-		//  * @tparam ValueArgs Perfect forwarding types to construct the value.
-		//  * @param tag Indicates that the lockable object should be default constructed.
-		//  * @param valueArgs Perfect forwarding arguments to construc the value.
-		//  */
-		// template<typename... ValueArgs>
-		// Safe(default_construct_lockable tag, ValueArgs&&... valueArgs);
+		/**
+		 * @brief Construct.
+		 * 
+		 * @tparam ValueArgs Perfect forwarding types to construct the value.
+		 * @param tag Indicates that the lockable object should be default constructed.
+		 * @param valueArgs Perfect forwarding arguments to construc the value.
+		 */
+		template<typename... ValueArgs>
+		Safe(default_construct_lockable tag, ValueArgs&&... valueArgs);
 
 		/**
-		 * @brief %Safe access to the protected value through a ConstGuard object.
+		 * @brief %Safe access to the protected value through a SharedGuard object.
 		 * 
-		 * @return ConstGuard
+		 * @return SharedGuard
 		 */
-		ConstGuard constGuard() const;
+		SharedGuard sharedGuard() const;
 		/**
-		 * @brief %Safe access to the protected value through a ConstGuard object.
+		 * @brief %Safe access to the protected value through a SharedGuard object.
 		 * 
-		 * @return ConstGuard
+		 * @return SharedGuard
 		 */
-		ConstGuard guard() const;
+		SharedGuard guard() const;
 		/**
 		 * @brief %Safe access to the protected value through a Guard object.
 		 * 
@@ -298,17 +299,17 @@ namespace safe
 		 */
 		Guard guard();
 		/**
-		 * @brief %Safe access to the protected value through a ConstLock object.
+		 * @brief %Safe access to the protected value through a SharedLock object.
 		 * 
-		 * @return ConstLock
+		 * @return SharedLock
 		 */
-		ConstLock constLock() const;
+		SharedLock sharedLock() const;
 		/**
-		 * @brief %Safe access to the protected value through a ConstLock object.
+		 * @brief %Safe access to the protected value through a SharedLock object.
 		 * 
-		 * @return ConstLock
+		 * @return SharedLock
 		 */
-		ConstLock lock() const;
+		SharedLock lock() const;
 		/**
 		 * @brief %Safe access to the protected value through a Lock object.
 		 * 
@@ -329,8 +330,8 @@ namespace safe
 		 */
 		ValueType& unsafe();
 
-			/// The lockable object that protects the value.
-		LockableType& lockable;
+			/// The lockable that protects the value.
+		LockableType lockable;
 	private:
 			/// The value to protect.
 		ValueType m_value;
