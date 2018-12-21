@@ -1,20 +1,36 @@
 # Safe
 ## Overview
-Small wrapper around a value object and the lockable object (typically a std::mutex) that protects it for multi-threaded access. The value is hidden by the Safe object until safe or unsafe accessor functions are called. The unsafe() accessor functions are provided for convinience, the safe way to access the value is by getting a Safe::Guard or a Safe::Lock that manage the lockable object while providing access to the value.
-* Guard and ConstGuard objects act like std::lock_guard (RAII for a lockable object, without the possibility to unlock it during the lock_guard's lifetime) and give access to the protected value.
-2. Lock and ConstLock objects act like std::unique_lock (RAII for a lockable object, but with the possibility to unlock and relock at will) and give access to the protected value. You can also access the lock direcly, it is a public member variable.
+Small wrapper around a value object and the lockable object (typically a std::mutex) that protects the value for multi-threaded access. When you use Safe, you:
+* clearly express that the stored value needs to be protected, and which lockable object protects it.
+* clearly know whether you access the value in a protected or unprotected way. Calling lock() or guard() gives you protected access, calling unsafe() gives unprotected access.
 
-## Philosophy
-The primary use of Safe is to unambiguously link a lockable object and the value that it protects. Secondly, the safe accessors (Guard, ConstGuard, Lock and ConstLock) ensure that the lockalbe is locked when the value is accessed. Finally, the unsafe accessors allow unprotected access to the value when locking is superfluous, use at your own risk.
-    * Safe also makes intent clearer: when you provide a Safe (that is, both a value and a lockable tied together), you explicitely tell which values are protected by a lockable object and which are not. Protected values are inside the Safe, unprotected ones are outside!
-    * Safe makes it harder to forget to lock before fiddling with the value, because the value cannot be accessed directly: an accessor function must be called first.
-
-## Example
-The safe::State class uses a Safe. Please take a look a the State class, as the example below uses one.
-```cpp
-write the examples...
-};
-``` 
-
-
-
+Here is why you want to use Safe:
+<table border="0">
+ <tr>
+    <td><b style="font-size:30px">Without Safe</b></td>
+    <td><b style="font-size:30px">With Safe</b></td>
+ </tr>
+ <tr>
+    <td><pre><code class="language-c++">
+std::vector<int> vec;
+std::mutex the_right_mutex;
+std::mutex the_wrong_mutex;
+{
+  std::lock_guard<std::mutex> lock(the_wrong_mutex); // <-- wrong mutex, but how could you tell ?
+  vec.resize(1);
+  vec.push_back(1);
+}
+vec.pop_back(); // <-- unprotected access, is this intended ?
+    </code></pre></td>
+    <td><pre><code class="language-c++">
+safe::Safe<std::vector<int>> safeVec;
+std::mutex the_wrong_mutex;
+{
+  auto vec = safeVec.guard(); // <-- right mutex!!
+  vec->resize(1);
+  vec->push_back(1);
+}
+safeVec.unsafe().pop_back(); // <-- unprotected access clearly expressed!!
+    </code></pre></td>
+ </tr>
+</table>
