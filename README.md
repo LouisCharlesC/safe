@@ -1,52 +1,48 @@
 # Safe
 ## Overview
-Small wrapper around a value object and the lockable object (typically a std::mutex) that protects the value for multi-threaded access. When you use Safe, you clearly express:
+Safe is a wrapper around a value object and the lockable object (typically a std::mutex) that protects the value for multi-threaded access. When you use Safe, you clearly express:
 * that the stored value needs to be protected, and which lockable object protects it: they are packed together,
-* whether you access the value in a protected or unprotected way: calling lock() or guard() gives protected access, calling unsafe() gives unprotected access.
+* whether you access the value in a protected or unprotected way: the Guard and Lock classes give protected access, the unsafe() function gives unprotected access.
 
 Here is why you want to use Safe:
 ### Without Safe
 ```c++
-std::mutex the_wrong_mutex;
-std::mutex the_right_mutex;
+std::mutex wrong_mutex;
+std::mutex right_mutex;
 std::vector<int> vec;
 {
-  // Wrong mutex, but how could you tell ?
-  std::lock_guard<std::mutex> lock(the_wrong_mutex);
+  std::lock_guard<std::mutex> lock(wrong_mutex); // <-- wrong mutex, but how could you tell ?
   vec.push_back(42);
 }
-// Unprotected access, is this intended ?
-vec.pop_back();
+vec.pop_back(); // <-- unprotected access, is this intended ?
 ```
 ### With Safe
 ```c++
-std::mutex the_wrong_mutex;
-// The right mutex is in the Safe object
-safe::Safe<std::vector<int>> safeVec;
+std::mutex wrong_mutex;
+safe::Safe<std::vector<int>> safeVec; // <-- the right mutex is in here!
 {
-  // Right mutex: guaranteed!
-  decltype(safeVec)::Guard vec(safeVec);
+  safe::Safe<std::vector<int>>::Guard vec(safeVec); // <-- right mutex: guaranteed!
   vec.push_back(42);
 }
-// Unprotected access: clearly expressed!
-safeVec.unsafe().pop_back();
+safeVec.unsafe().pop_back(); // <-- unprotected access: clearly expressed!
 ```
 
 ## Main features:
-### 1. Use internal or external lockable object
+### 1. Just like the standard library, choose between a lock_guard or a unique_lock behavior. 
+### 2. c++11 compatible *and* std::shared_lock (c++14) and std::shared_mutex (c++17) ready.
+Introduce safe::NonShared...
+### 3. Use internal or external lockable object
 ```c++
-safe::Safe&lt;int, std::mutex&gt; safeInternal; // a std::mutex lives in safeInternal
-safe::Safe&lt;int&gt; safeInternalDefault; // Lockable template parameter defaults to std::mutex
-std::mutex mutex;
-safe::Safe&lt;int, std::mutex&&gt; safeExternal(mutex); // a reference to mutex is stored
-safe::Safe&lt;int, std::mutex&&gt; safeSameMutex(mutex); // uses the same mutex as safeExternal
+safe::Safe<int, safe::NonShared<std::mutex>>; safeInternal; // a std::mutex lives in safeInternal
+safe::Safe<int> safeInternalDefault; // Lockable template parameter defaults to safe::NonShared<std::mutex>
+std::mutex myMutex;
+safe::Safe<int, safe::NonShared<std::mutex&>> safeExternal(myMutex); // a reference to myMutex is stored
+safe::Safe<int, safe::NonShared<std::mutex&>> safeSameMutex(myMutex); // uses the same mutex as safeExternal
 ```
 Note: when the lockable object is default constructed, but the value object is not, you must pass the safe::default_construct_lockable tag. Example:
 ```c++
-safe::Safe&lt;int&gt; safeInternalDefault(safe::default_construct_lockable(), 42)
+safe::Safe<int> safeInternalDefault(safe::default_construct_lockable(), 42)
 ```
-### 2. c++11 compatible, but seamlessly integrates c++14 and c++17 std::shared_mutex and std::shared_lock.
-### 3. Just like the standard library, choose between a lock_guard or a unique_lock behavior. 
 
 ## Complete example
 
