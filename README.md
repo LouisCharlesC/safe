@@ -12,25 +12,38 @@ Here is why you want to use Safe:
  </tr>
  <tr>
     <td><pre><code class="language-c++">
-std::vector<int> vec;
-std::mutex the_right_mutex;
 std::mutex the_wrong_mutex;
+std::mutex the_right_mutex;
+std::shared_ptr&lt;int&gt;ptr;
 {
-  std::lock_guard<std::mutex> lock(the_wrong_mutex); // <-- wrong mutex, but how could you tell ?
-  vec.resize(1);
-  vec.push_back(1);
+  // Wrong mutex, but how could you tell ?
+  std::lock_guard&lt;std::mutex&gt; lock(the_wrong_mutex);
+  *ptr = 1;
 }
-vec.pop_back(); // <-- unprotected access, is this intended ?
+// Unprotected access, is this intended ?
+std::cout << ptr.unique() << std::endl;
     </code></pre></td>
     <td><pre><code class="language-c++">
-safe::Safe<std::vector<int>> safeVec;
 std::mutex the_wrong_mutex;
+// The right mutex is in the Safe object
+safe::Safe&lt;std::shared_ptr&lt;int&gt;&gt;safePtr;
 {
-  auto vec = safeVec.guard(); // <-- right mutex!!
-  vec->resize(1);
-  vec->push_back(1);
+  // The right mutex: guaranteed!
+  decltype(safePtr)::Guard ptr(safePtr);
+  *ptr = 1;
 }
-safeVec.unsafe().pop_back(); // <-- unprotected access clearly expressed!!
+// Unprotected access: clearly expressed!
+std::cout << ptr.unsafe().unique() << std::endl;
     </code></pre></td>
  </tr>
 </table>
+
+Other features:
+1. Easy integration of c++14 and c++17 std::shared_mutex and std::shared_lock.
+2. Use internal or external lockable object
+3. Just like std, choose between a unique lock or a lock guard
+
+Complete example: State.
+
+
+
