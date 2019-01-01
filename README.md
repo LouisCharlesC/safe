@@ -14,7 +14,7 @@ Here is why you want to use Safe:
     <td><pre><code class="language-c++">
 std::mutex the_wrong_mutex;
 std::mutex the_right_mutex;
-std::shared_ptr&lt;int&gt;ptr;
+std::shared_ptr&lt;int&gt; ptr;
 {
   // Wrong mutex, but how could you tell ?
   std::lock_guard&lt;std::mutex&gt; lock(the_wrong_mutex);
@@ -26,7 +26,7 @@ std::cout << ptr.unique() << std::endl;
     <td><pre><code class="language-c++">
 std::mutex the_wrong_mutex;
 // The right mutex is in the Safe object
-safe::Safe&lt;std::shared_ptr&lt;int&gt;&gt;safePtr;
+safe::Safe&lt;std::shared_ptr&lt;int&gt;&gt; safePtr;
 {
   // The right mutex: guaranteed!
   decltype(safePtr)::Guard ptr(safePtr);
