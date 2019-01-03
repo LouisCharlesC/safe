@@ -22,7 +22,7 @@ std::mutex wrong_mutex;
 safe::Safe<std::vector<int>> safeVec; // <-- the right mutex is in here!
 {
   safe::Safe<std::vector<int>>::Guard vec(safeVec); // <-- right mutex: guaranteed!
-  vec.push_back(42);
+  vec->push_back(42);
 }
 safeVec.unsafe().pop_back(); // <-- unprotected access: clearly expressed!
 ```

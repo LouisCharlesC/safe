@@ -11,244 +11,319 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 
-class MockMutex : public std::mutex {
-public:
+#include <vector>
 
+class MockMutex : public std::mutex
+{
+public:
   MOCK_METHOD0(lock, void());
   MOCK_METHOD0(try_lock, bool());
   MOCK_METHOD0(unlock, void());
+
+  MOCK_METHOD0(lock_shared, void());
+  MOCK_METHOD0(try_lock_shared, bool());
+  MOCK_METHOD0(unlock_shared, void());
+};
+
+class MockValue: public std::vector<int>
+{
+public:
+	using std::vector<int>::vector;
+  MOCK_CONST_METHOD0(touch, void());
 };
 
 class SafeTest : public testing::Test {
 public:
-	using ValueType = int;
+	using SafeMutexRefValueRefType = safe::Safe<MockValue&, MockMutex&>;
+	using SafeMutexRefConstValueRefType = safe::Safe<const MockValue&, MockMutex&>;
+	using SafeMutexRefValueType = safe::Safe<MockValue, MockMutex&>;
+	using SafeMutexValueRefType = safe::Safe<MockValue&, MockMutex>;
+	using SafeMutexValueType = safe::Safe<MockValue, MockMutex>;
 
-	using SafeMutexRefValueType = safe::Safe<ValueType, MockMutex&>;
-	using SafeMutexValueType = safe::Safe<ValueType, MockMutex>;
-	using SafeMutexRefValueRefType = safe::Safe<ValueType&, MockMutex&>;
-	using SafeMutexRefConstValueType = safe::Safe<const ValueType, MockMutex&>;
+	using GuardType = SafeMutexRefValueRefType::Guard;
+	using SharedGuardType = SafeMutexRefValueRefType::SharedGuard;
+	using LockType = SafeMutexRefValueRefType::Lock;
+	using SharedLockType = SafeMutexRefValueRefType::SharedLock;
 
-	using ValueGuardType = SafeMutexRefValueType::Guard;
-	using ValueConstGuardType = SafeMutexRefValueType::SharedGuard;
-	using ValueLockType = SafeMutexRefValueType::Lock;
-	using ValueConstLockType = SafeMutexRefValueType::SharedLock;
+	SafeTest():
+		value(1ul, 42)
+	{}
 
-	void setUnlockOnlyCallExpectations()
+	void setTouchOnlyCallExpectations()
 	{
-		testing::InSequence unlock;
+		EXPECT_CALL(value, touch());
+	}
+	void setTouchAndUnlockCallExpectations()
+	{
+		testing::InSequence _;
+		EXPECT_CALL(value, touch());
 		EXPECT_CALL(mutex, unlock());
 	}
-	void setLockUnlockCallExpectations()
+	void setTouchAndUnlockSharedCallExpectations()
 	{
-		testing::InSequence lockUnlock;
+		testing::InSequence _;
+		EXPECT_CALL(value, touch());
+		EXPECT_CALL(mutex, unlock_shared());
+	}
+	void setLockTouchAndUnlockCallExpectations()
+	{
+		testing::InSequence _;
 		EXPECT_CALL(mutex, lock());
+		EXPECT_CALL(value, touch());
 		EXPECT_CALL(mutex, unlock());
 	}
-	void setTryLockOnlyCallExpectations()
+	void setLockSharedTouchAndUnlockSharedCallExpectations()
 	{
-		testing::InSequence lockUnlock;
+		testing::InSequence _;
+		EXPECT_CALL(mutex, lock_shared());
+		EXPECT_CALL(value, touch());
+		EXPECT_CALL(mutex, unlock_shared());
+	}
+	void setTryLockAndTouchCallExpectations()
+	{
+		testing::InSequence _;
 		EXPECT_CALL(mutex, try_lock());
+		EXPECT_CALL(value, touch());
+	}
+	void setTryLockSharedAndTouchCallExpectations()
+	{
+		testing::InSequence _;
+		EXPECT_CALL(mutex, try_lock_shared());
+		EXPECT_CALL(value, touch());
 	}
 
 	MockMutex mutex;
-	ValueType value = 42;
+	MockValue value;
 };
 
 class LockTest: public SafeTest {};
-class ConstLockTest: public SafeTest {};
+class SharedLockTest: public SafeTest {};
 class GuardTest: public SafeTest {};
-class ConstGuardTest: public SafeTest {};
+class SharedGuardTest: public SafeTest {};
 
-template<typename ConstOrNotGuardOrLock>
-void checkValueAccessors(ConstOrNotGuardOrLock&& guardOrLock, const int& value)
+template<typename Lock>
+void checkAccessorsAndTouchValue(Lock&& lock, const MockValue& value)
 {
-	EXPECT_EQ(&*guardOrLock, &value);
-	EXPECT_EQ(guardOrLock.operator->(), &value);
+	EXPECT_EQ(&*lock, &value);
+	EXPECT_EQ(lock.operator->(), &value);
+	value.touch();
 }
 
-TEST_F(SafeTest, MutexRefValueConstructor) {
-	SafeMutexRefValueType safeValue(mutex, value);
-
-	EXPECT_EQ(safeValue.unsafe(), value);
-	EXPECT_EQ(&static_cast<const SafeMutexRefValueType&>(safeValue).unsafe(), &safeValue.unsafe());
-	EXPECT_EQ(&safeValue.lockable, &mutex);
+void readmeWithoutSafeExample()
+{
+	std::mutex wrong_mutex;
+	std::mutex right_mutex;
+	std::vector<int> vec;
+	{
+		std::lock_guard<std::mutex> lock(wrong_mutex); // <-- wrong mutex, but how could you tell ?
+		vec.push_back(42);
+	}
+	vec.pop_back(); // <-- unprotected access, is this intended ?
 }
 
-TEST_F(SafeTest, MutexValueConstructor) {
-	SafeMutexValueType safeValue(safe::default_construct_lockable(), value);
-
-	EXPECT_EQ(safeValue.unsafe(), value);
-	EXPECT_EQ(&static_cast<const SafeMutexValueType&>(safeValue).unsafe(), &safeValue.unsafe());
+void readmeWitSafeExample()
+{
+	std::mutex wrong_mutex;
+	safe::Safe<std::vector<int>> safeVec; // <-- the right mutex is in here!
+	{
+		safe::Safe<std::vector<int>>::Guard vec(safeVec); // <-- right mutex: guaranteed!
+		vec->push_back(42);
+	}
+	safeVec.unsafe().pop_back(); // <-- unprotected access: clearly expressed!
 }
 
 TEST_F(SafeTest, MutexRefValueRefConstructor) {
-	SafeMutexRefValueRefType safeRef(mutex, value);
+	SafeMutexRefValueRefType safe(mutex, value);
 
-	EXPECT_EQ(&safeRef.unsafe(), &value);
-	EXPECT_EQ(&static_cast<const SafeMutexRefValueRefType&>(safeRef).unsafe(), &safeRef.unsafe());
-	EXPECT_EQ(&safeRef.lockable, &mutex);
+	EXPECT_EQ(&safe.unsafe(), &value);
+	EXPECT_EQ(&static_cast<const SafeMutexRefValueRefType&>(safe).unsafe(), &safe.unsafe());
+}
+TEST_F(SafeTest, MutexRefConstValueRefConstructor) {
+	SafeMutexRefConstValueRefType safe(mutex, value);
+
+	EXPECT_EQ(&safe.unsafe(), &value);
+	EXPECT_EQ(&static_cast<const SafeMutexRefConstValueRefType&>(safe).unsafe(), &safe.unsafe());
+}
+TEST_F(SafeTest, MutexRefValueConstructor) {
+	SafeMutexRefValueType safe(mutex, value.cbegin(), value.cend());
+
+	EXPECT_EQ(safe.unsafe(), value);
+	EXPECT_EQ(&static_cast<const SafeMutexRefValueType&>(safe).unsafe(), &safe.unsafe());
+}
+TEST_F(SafeTest, MutexValueRefConstructor) {
+	SafeMutexValueRefType safe(safe::default_construct_lockable(), value);
+
+	EXPECT_EQ(&safe.unsafe(), &value);
+	EXPECT_EQ(&static_cast<const SafeMutexValueRefType&>(safe).unsafe(), &safe.unsafe());
+}
+TEST_F(SafeTest, MutexValueConstructor) {
+	SafeMutexValueType safe(safe::default_construct_lockable(), value.cbegin(), value.cend());
+
+	EXPECT_EQ(safe.unsafe(), value);
+	EXPECT_EQ(&static_cast<const SafeMutexValueType&>(safe).unsafe(), &safe.unsafe());
 }
 
 TEST_F(SafeTest, FunctionGuard) {
-	SafeMutexRefValueType safeValue(mutex, value);
+	SafeMutexRefValueRefType safe(mutex, value);
 
-	setLockUnlockCallExpectations();
-	checkValueAccessors(safeValue.guard(), safeValue.unsafe());
+	setLockTouchAndUnlockCallExpectations();
+	checkAccessorsAndTouchValue(safe.guard(), safe.unsafe());
 }
 
 TEST_F(SafeTest, ConstFunctionGuard) {
-
-	const SafeMutexRefValueType safeValue(mutex, value);
+	const SafeMutexRefValueRefType safe(mutex, value);
 	
-	setLockUnlockCallExpectations();
-	checkValueAccessors(safeValue.guard(), safeValue.unsafe());
+	setLockSharedTouchAndUnlockSharedCallExpectations();
+	checkAccessorsAndTouchValue(safe.guard(), safe.unsafe());
 }
 
-TEST_F(SafeTest, FunctionConstGuard) {
-	SafeMutexRefValueType safeValue(mutex, value);
+TEST_F(SafeTest, FunctionSharedGuard) {
+	SafeMutexRefValueRefType safe(mutex, value);
 
-	setLockUnlockCallExpectations();
-	checkValueAccessors(safeValue.sharedGuard(), safeValue.unsafe());
+	setLockSharedTouchAndUnlockSharedCallExpectations();
+	checkAccessorsAndTouchValue(safe.sharedGuard(), safe.unsafe());
 }
 
 TEST_F(SafeTest, FunctionLock) {
-	SafeMutexRefValueType safeValue(mutex, value);
+	SafeMutexRefValueRefType safe(mutex, value);
 
-	setLockUnlockCallExpectations();
+	setLockTouchAndUnlockCallExpectations();
 
-	const auto lock = safeValue.lock();
+	const auto lock = safe.lock();
 
-	checkValueAccessors(lock, safeValue.unsafe());
+	checkAccessorsAndTouchValue(lock, safe.unsafe());
 	EXPECT_EQ(lock.lock.mutex(), &mutex);
 	EXPECT_TRUE(lock.lock.owns_lock());
 }
 
 TEST_F(SafeTest, ConstFunctionLock) {
-	const SafeMutexRefValueType safeValue(mutex, value);
+	const SafeMutexRefValueRefType safe(mutex, value);
 
-	setLockUnlockCallExpectations();
+	setLockTouchAndUnlockCallExpectations();
 
-	const auto lock = safeValue.lock();
+	const auto lock = safe.lock();
 
-	checkValueAccessors(lock, safeValue.unsafe());
+	checkAccessorsAndTouchValue(lock, safe.unsafe());
 	EXPECT_EQ(lock.lock.mutex(), &mutex);
 	EXPECT_TRUE(lock.lock.owns_lock());
 }
 
-TEST_F(SafeTest, FunctionConstLock) {
-	SafeMutexRefValueType safeValue(mutex, value);
+TEST_F(SafeTest, FunctionSharedLock) {
+	SafeMutexRefValueRefType safe(mutex, value);
 
-	setLockUnlockCallExpectations();
+	setLockTouchAndUnlockCallExpectations();
 
-	const auto lock = safeValue.sharedLock();
+	const auto lock = safe.sharedLock();
 
-	checkValueAccessors(lock, safeValue.unsafe());
+	checkAccessorsAndTouchValue(lock, safe.unsafe());
 	EXPECT_EQ(lock.lock.mutex(), &mutex);
 	EXPECT_TRUE(lock.lock.owns_lock());
 }
 
-TEST_F(LockTest, MutexValueConstructor) {
-	setLockUnlockCallExpectations();
+// TEST_F(LockTest, MutexValueConstructor) {
+// 	setLockTouchAndUnlockCallExpectations();
 
-	const ValueLockType lock(mutex, value);
+// 	const LockType lock(mutex, value);
 
-	checkValueAccessors(lock, value);
-	EXPECT_EQ(lock.lock.mutex(), &mutex);
-	EXPECT_TRUE(lock.lock.owns_lock());
-}
+// 	checkAccessorsAndTouchValue(lock, value);
+// 	EXPECT_EQ(lock.lock.mutex(), &mutex);
+// 	EXPECT_TRUE(lock.lock.owns_lock());
+// }
 
-TEST_F(LockTest, MutexValueAdoptLockConstructor) {
-	setUnlockOnlyCallExpectations();
+// TEST_F(LockTest, MutexValueAdoptLockConstructor) {
+// 	setLockTouchAndUnlockCallExpectations();
 
-	const ValueLockType lock(mutex, value, std::adopt_lock_t());
+// 	const LockType lock(mutex, value, std::adopt_lock_t());
 
-	checkValueAccessors(lock, value);
-	EXPECT_EQ(lock.lock.mutex(), &mutex);
-	EXPECT_TRUE(lock.lock.owns_lock());
-}
+// 	checkAccessorsAndTouchValue(lock, value);
+// 	EXPECT_EQ(lock.lock.mutex(), &mutex);
+// 	EXPECT_TRUE(lock.lock.owns_lock());
+// }
 
-TEST_F(LockTest, MutexValueTryToLockConstructor) {
-	setTryLockOnlyCallExpectations();
+// TEST_F(LockTest, MutexValueTryToLockConstructor) {
+// 	setLockTouchAndUnlockCallExpectations();
 
-	const ValueLockType lock(mutex, value, std::try_to_lock_t());
+// 	const LockType lock(mutex, value, std::try_to_lock_t());
 
-	checkValueAccessors(lock, value);
-	EXPECT_EQ(lock.lock.mutex(), &mutex);
-}
+// 	checkAccessorsAndTouchValue(lock, value);
+// 	EXPECT_EQ(lock.lock.mutex(), &mutex);
+// }
 
-TEST_F(LockTest, MutexValueDeferLockConstructor) {
-	const ValueLockType lock(mutex, value, std::defer_lock_t());
+// TEST_F(LockTest, MutexValueDeferLockConstructor) {
+// 	const LockType lock(mutex, value, std::defer_lock_t());
 	
-	checkValueAccessors(lock, value);
-	EXPECT_EQ(lock.lock.mutex(), &mutex);
-	EXPECT_FALSE(lock.lock.owns_lock());
-}
+// 	checkAccessorsAndTouchValue(lock, value);
+// 	EXPECT_EQ(lock.lock.mutex(), &mutex);
+// 	EXPECT_FALSE(lock.lock.owns_lock());
+// }
 
-TEST_F(ConstLockTest, MutexValueConstructor) {
-	setLockUnlockCallExpectations();
+// // TEST_F(SharedLockTest, MutexValueConstructor) {
+// // 	setLockSharedTouchAndUnlockSharedCallExpectations();
 
-	const ValueConstLockType lock(mutex, value);
+// // 	const SharedLockType lock(mutex, value);
 
-	checkValueAccessors(lock, value);
-	EXPECT_EQ(lock.lock.mutex(), &mutex);
-	EXPECT_TRUE(lock.lock.owns_lock());
-}
+// // 	checkAccessorsAndTouchValue(lock, value);
+// // 	EXPECT_EQ(lock.lock.mutex(), &mutex);
+// // 	EXPECT_TRUE(lock.lock.owns_lock());
+// // }
 
-TEST_F(ConstLockTest, MutexValueAdoptLockConstructor) {
-	setUnlockOnlyCallExpectations();
+// // TEST_F(SharedLockTest, MutexValueAdoptLockConstructor) {
+// // 	setTouchAndUnlockSharedCallExpectations();
 
-	const ValueConstLockType lock(mutex, value, std::adopt_lock_t());
+// // 	const SharedLockType lock(mutex, value, std::adopt_lock_t());
 
-	checkValueAccessors(lock, value);
-	EXPECT_EQ(lock.lock.mutex(), &mutex);
-	EXPECT_TRUE(lock.lock.owns_lock());
-}
+// // 	checkAccessorsAndTouchValue(lock, value);
+// // 	EXPECT_EQ(lock.lock.mutex(), &mutex);
+// // 	EXPECT_TRUE(lock.lock.owns_lock());
+// // }
 
-TEST_F(ConstLockTest, MutexValueTryToLockConstructor) {
-	setTryLockOnlyCallExpectations();
+// // TEST_F(SharedLockTest, MutexValueTryToLockConstructor) {
+// // 	setTryLockSharedAndTouchCallExpectations();
 
-	const ValueConstLockType lock(mutex, value, std::try_to_lock_t());
+// // 	const SharedLockType lock(mutex, value, std::try_to_lock_t());
 
-	checkValueAccessors(lock, value);
-	EXPECT_EQ(lock.lock.mutex(), &mutex);
-}
+// // 	checkAccessorsAndTouchValue(lock, value);
+// // 	EXPECT_EQ(lock.lock.mutex(), &mutex);
+// // }
 
-TEST_F(ConstLockTest, MutexValueDeferLockConstructor) {
-	const ValueConstLockType lock(mutex, value, std::defer_lock_t());
+// // TEST_F(SharedLockTest, MutexValueDeferLockConstructor) {
+// // 	setTouchOnlyCallExpectations();
+
+// // 	const SharedLockType lock(mutex, value, std::defer_lock_t());
 	
-	checkValueAccessors(lock, value);
-	EXPECT_EQ(lock.lock.mutex(), &mutex);
-	EXPECT_FALSE(lock.lock.owns_lock());
-}
+// // 	checkAccessorsAndTouchValue(lock, value);
+// // 	EXPECT_EQ(lock.lock.mutex(), &mutex);
+// // 	EXPECT_FALSE(lock.lock.owns_lock());
+// // }
 
-TEST_F(GuardTest, MutexValueConstructor) {
-	setLockUnlockCallExpectations();
+// // TEST_F(GuardTest, MutexValueConstructor) {
+// // 	setLockTouchAndUnlockCallExpectations();
 
-	const ValueGuardType guard(mutex, value);
+// // 	const GuardType guard(mutex, value);
 
-	checkValueAccessors(guard, value);
-}
+// // 	checkAccessorsAndTouchValue(guard, value);
+// // }
 
-TEST_F(GuardTest, MutexValueAdoptConstructor) {
-	setUnlockOnlyCallExpectations();
+// // TEST_F(GuardTest, MutexValueAdoptConstructor) {
+// // 	setTouchAndUnlockCallExpectations();
 
-	const ValueGuardType guard(mutex, value, std::adopt_lock_t());
+// // 	const GuardType guard(mutex, value, std::adopt_lock_t());
 
-	checkValueAccessors(guard, value);
-}
+// // 	checkAccessorsAndTouchValue(guard, value);
+// // }
 
-TEST_F(ConstGuardTest, MutexValueConstructor) {
-	setLockUnlockCallExpectations();
+// // TEST_F(SharedGuardTest, MutexValueConstructor) {
+// // 	setLockSharedTouchAndUnlockSharedCallExpectations();
 
-	const ValueConstGuardType guard(mutex, value);
+// // 	const SharedGuardType guard(mutex, value);
 
-	checkValueAccessors(guard, value);
-}
+// // 	checkAccessorsAndTouchValue(guard, value);
+// // }
 
-TEST_F(ConstGuardTest, MutexValueAdoptConstructor) {
-	setUnlockOnlyCallExpectations();
+// // TEST_F(SharedGuardTest, MutexValueAdoptConstructor) {
+// // 	setTouchAndUnlockSharedCallExpectations();
 
-	const ValueConstGuardType guard(mutex, value, std::adopt_lock_t());
+// // 	const SharedGuardType guard(mutex, value, std::adopt_lock_t());
 
-	checkValueAccessors(guard, value);
-}
+// // 	checkAccessorsAndTouchValue(guard, value);
+// // }
