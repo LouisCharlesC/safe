@@ -49,113 +49,40 @@ namespace safe
 		using ConstValuePointerType = const typename std::remove_reference<ValueType>::type*;
 		using ValueReferenceType = typename std::remove_reference<ValueType>::type&;
 		using ConstValueReferenceType = const typename std::remove_reference<ValueType>::type&;
-		
-		/**
-		 * @brief A class that gives const access to a value and protects
-		 * it using a std::unique_lock.
-		 */
-		class SharedLock
-		{
-		public:
-		// SharedLock(const Safe& safe);
-			/**
-			 * @brief Constructor.
-			 * 
-			 * @pre lockable must be unlocked.
-			 * @post lockable is locked.
-			 * 
-			 * @param[in] lockable The lockable object.
-			 * @param[in] value The protected value.
-			 */
-			SharedLock(LockableType& lockable, ConstValueReferenceType value);
-			/**
-			 * @brief Construct a new SharedLock object applying the specified
-			 * locking policy.
-			 * 
-			 * @pre When LockPolicy is std::adopt_lock_t, lockable must be locked. When
-			 * LockPolicy is std::defer_lock_t, lockable must be unlocked.
-			 * @post When LockPolicy is std::defer_lock_t, lockable is unlocked. Otherwise
-			 * lockable is locked.
-			 * 
-			 * @tparam LockPolicy std::adopt_lock_t, std::try_to_lock_t
-			 * or std::defer_lock_t.
-			 * @param[in] lockable The lockable object.
-			 * @param[in] value The protected value.
-			 * @param[in] tag Dictates the locking policy to apply.
-			 */
-			template<typename LockPolicy>
-			SharedLock(LockableType& lockable, ConstValueReferenceType value, LockPolicy tag);
 
-			/**
-			 * @brief Const accessor function.
-			 * 
-			 * @return ConstValuePointerType The protected value.
-			 */
-			ConstValuePointerType operator->() const noexcept;
-			/**
-			 * @brief Const accessor function.
-			 * 
-			 * @return ConstValueReferenceType The protected value.
-			 */
-			ConstValueReferenceType operator*() const noexcept;
-
-			/// The std::unique_lock that manages the lockable object.
-			SharedLockType<typename std::remove_reference<LockableType>::type> lock;
-		private:
-			/// The protected value.
-			ConstValueReferenceType m_value;
-		};
 		/**
-		 * @brief A class that gives access to a value and protects
-		 * it using a std::unique_lock.
+		 * @brief A class that locks a Safe object with unique lock behavior and
+		 * gives access to the Safe object's value.
 		 */
 		class Lock
 		{
 		public:
-			Lock(const Safe& safe);
 			/**
-			 * @brief Constructor.
+			 * @brief Locks safe with unique lock behavior and gives
+			 * access to its value.
 			 * 
-			 * @pre lockable must be unlocked.
-			 * @post lockable is locked.
-			 * 
-			 * @param lockable The lockable object.
-			 * @param value The protected value.
+			 * @param[in] safe The Safe object to lock.
 			 */
-			Lock(LockableType& lockable, ValueType& value);
-			/**
-			 * @brief Construct a new Lock object applying the specified
-			 * locking policy.
-			 * 
-			 * @pre When LockPolicy is std::adopt_lock_t, lockable must be locked. When
-			 * LockPolicy is std::defer_lock_t, lockable must be unlocked.
-			 * @post When LockPolicy is std::defer_lock_t, lockable is unlocked. Otherwise
-			 * lockable is locked.
-			 * 
-			 * @tparam LockPolicy std::adopt_lock_t, std::try_to_lock_t
-			 * or std::defer_lock_t.
-			 * @param[in] lockable The lockable object.
-			 * @param[in] value The protected value.
-			 * @param[in] tag Dictates the locking policy to apply.
-			 */
-			template<typename LockPolicy>
-			Lock(LockableType& lockable, ValueType& value, LockPolicy tag);
+			Lock(Safe& safe) noexcept;
 
 			/**
 			 * @brief Const accessor function.
 			 * @return ConstValuePointerType The protected value.
 			 */
 			ConstValuePointerType operator->() const noexcept;
+
 			/**
 			 * @brief Accessor function.
 			 * @return ValuePointerType The protected value.
 			 */
 			ValuePointerType operator->() noexcept;
+
 			/**
 			 * @brief Const accessor function.
 			 * @return ConstValueReferenceType The protected value.
 			 */
 			ConstValueReferenceType operator*() const noexcept;
+
 			/**
 			 * @brief Const accessor function.
 			 * @return ValueReferenceType The protected value.
@@ -170,45 +97,122 @@ namespace safe
 		};
 
 		/**
-		 * @brief A class that gives const access to a value and protects
-		 * it using a std::lock_guard.
-		 * 
-		 * Instances of this class cannot be copied around and transfered 
-		 * from a scope to another due to the std::lock_guard member variable.
-		 * This is the intended behavior although it makes certain operations
-		 * harder, like returning a SharedGuard object. The two way I know you
-		 * can transfer a SharedGuard object is by returning by list-initialization
-		 * and passing to a function by rvalue ValueReferenceType.
+		 * @brief A class that locks a Safe object with shared unique lock behavior and
+		 * gives access to the Safe object's value.
+		 */
+		class SharedLock
+		{
+		public:
+			/**
+			 * @brief Locks safe with shared unique lock behavior and gives
+			 * access to its value.
+			 * 
+			 * @param[in] safe The Safe object to lock.
+			 */
+			SharedLock(const Safe& safe) noexcept;
+
+			/**
+			 * @brief Const accessor function.
+			 * 
+			 * @return ConstValuePointerType The protected value.
+			 */
+			ConstValuePointerType operator->() const noexcept;
+
+			/**
+			 * @brief Const accessor function.
+			 * 
+			 * @return ConstValueReferenceType The protected value.
+			 */
+			ConstValueReferenceType operator*() const noexcept;
+
+			/// The std::unique_lock that manages the lockable object.
+			SharedLockType<typename std::remove_reference<LockableType>::type> lock;
+		private:
+			/// The protected value.
+			ConstValueReferenceType m_value;
+		};
+
+		/**
+		 * @brief A class that locks a Safe object with lock guard behavior and
+		 * gives access to the Safe object's value.
+		 */
+		class Guard
+		{
+		public:
+			/**
+			 * @brief Locks safe with lock guard behavior and gives
+			 * access to its value.
+			 * 
+			 * @param[in] safe The Safe object to lock.
+			 */
+			Guard(Safe& safe) noexcept;
+			/**
+			 * @brief Adopts the lock owned by lock.
+			 * 
+			 * [pre] lock must be locked.
+			 * 
+			 * @param[in] lock The Lock object whose lock will be adopted.
+			 */
+			Guard(Lock& lock) noexcept;
+
+			Guard(const Guard&) = delete;
+			Guard(Guard&&) = delete;
+			Guard& operator=(const Guard&) = delete;
+			Guard& operator=(Guard&&) = delete;
+
+			/**
+			 * @brief Const accessor function.
+			 * @return ConstValuePointerType The protected value.
+			 */
+			ConstValuePointerType operator->() const noexcept;
+
+			/**
+			 * @brief Accessor function.
+			 * @return ValuePointerType The protected value.
+			 */
+			ValuePointerType operator->() noexcept;
+
+			/**
+			 * @brief Const accessor function.
+			 * @return ConstValueReferenceType The protected value.
+			 */
+			ConstValueReferenceType operator*() const noexcept;
+
+			/**
+			 * @brief Accessor function.
+			 * @return ValueReferenceType The protected value.
+			 */
+			ValueReferenceType operator*() noexcept;
+
+		private:
+			/// The std::lock_guard that manages the lockable object.
+      const std::lock_guard<typename std::remove_reference<LockableType>::type> m_guard;
+			/// The protected value.
+			ValueReferenceType m_value;
+		};
+
+		/**
+		 * @brief A class that locks a Safe object with shared lock guard behavior and
+		 * gives access to the Safe object's value.
 		 */
 		class SharedGuard
 		{
 		public:
-			using ConstValuePointerType = const typename std::remove_reference<ValueType>::type*;
-			using ConstValueReferenceType = const typename std::remove_reference<ValueType>::type&;
-			
+			/**
+			 * @brief Locks safe with shared lock guard behavior and gives
+			 * access to its value.
+			 * 
+			 * @param[in] safe The Safe object to lock.
+			 */
 			SharedGuard(const Safe& safe) noexcept;
-			SharedGuard(Safe& safe) noexcept;
-
-			// /**
-			//  * @brief Constructor.
-			//  * 
-			//  * @pre lockable must be unlocked
-			//  * @post lockable is locked
-			//  * 
-			//  * @param lockable The lockable object
-			//  * @param value The protected value
-			//  */
-			// SharedGuard(LockableType& lockable, ConstValueReferenceType value);
-			// /**
-			//  * @brief Construct a new SharedGuard object from a locked lockable.
-			//  * 
-			//  * @pre lockable must be locked
-			//  * 
-			//  * @param lockable The lockable object
-			//  * @param value The protected value
-			//  * @param tag An instance of std::adopt_lock_t
-			//  */
-			// SharedGuard(LockableType& lockable, ConstValueReferenceType value, std::adopt_lock_t tag);
+			/**
+			 * @brief Adopts the lock owned by lock.
+			 * 
+			 * [pre] lock must be locked.
+			 * 
+			 * @param[in] lock The SharedLock object whose lock will be adopted.
+			 */
+			SharedGuard(SharedLock& lock) noexcept;
 
 			SharedGuard(const SharedGuard&) = delete;
 			SharedGuard(SharedGuard&&) = delete;
@@ -222,6 +226,7 @@ namespace safe
 			 * @return ConstValuePointerType The protected value.
 			 */
 			ConstValuePointerType operator->() const noexcept;
+
 			/**
 			 * @brief Const accessor functions.
 			 * @return ConstValueReferenceType The protected value.
@@ -229,85 +234,11 @@ namespace safe
 			ConstValueReferenceType operator*() const noexcept;
 
 		private:
-			/// The std::lock_guard that manages the lockable object.
+			/// The lockable object that protects m_value.
 			LockableType& m_lockable;
 			/// The protected value.
 			ConstValueReferenceType m_value;
 		};
-		/**
-		 * @brief A class that gives access to a value and protects
-		 * it using a std::lock_guard.
-		 * 
-		 * Instances of this class cannot be copied around and transfered 
-		 * from a scope to another due to the std::lock_guard member variable.
-		 * This is the intended behavior although it makes certain operations
-		 * harder, like returning a SharedGuard object.
-		 */
-		class Guard
-		{
-		public:
-			using ValuePointerType = typename std::remove_reference<ValueType>::type*;
-			using ConstValuePointerType = const typename std::remove_reference<ValueType>::type*;
-			using ValueReferenceType = typename std::remove_reference<ValueType>::type&;
-			using ConstValueReferenceType = const typename std::remove_reference<ValueType>::type&;
-
-			Guard(const Safe& safe) noexcept;
-			Guard(Safe& safe) noexcept;
-			// /**
-			//  * @brief Constructor.
-			//  * 
-			//  * @pre lockable must be unlocked
-			//  * @post lockable is locked
-			//  * 
-			//  * @param lockable The lockable object
-			//  * @param value The protected value
-			//  */
-			// Guard(LockableType& lockable, ValueType& value);
-			// /**
-			//  * @brief Construct a new SharedGuard object from a locked lockable.
-			//  * 
-			//  * @pre lockable must be locked
-			//  * 
-			//  * @param lockable The lockable object
-			//  * @param value The protected value
-			//  * @param tag An instance of std::adopt_lock_t
-			//  */
-			// Guard(LockableType& lockable, ValueType& value, std::adopt_lock_t);
-
-			Guard(const Guard&) = delete;
-			Guard(Guard&&) = delete;
-			Guard& operator=(const Guard&) = delete;
-			Guard& operator=(Guard&&) = delete;
-			/**
-			 * @brief Const accessor function.
-			 * @return ConstValuePointerType The protected value.
-			 */
-			ConstValuePointerType operator->() const noexcept;
-			/**
-			 * @brief Accessor function.
-			 * @return ValuePointerType The protected value.
-			 */
-			ValuePointerType operator->() noexcept;
-			/**
-			 * @brief Const accessor function.
-			 * @return ConstValueReferenceType The protected value.
-			 */
-			
-			ConstValueReferenceType operator*() const noexcept;
-			/**
-			 * @brief Accessor function.
-			 * @return ValueType& The protected value.
-			 */
-			ValueReferenceType operator*() noexcept;
-
-		private:
-			/// The std::lock_guard that manages the lockable object.
-      const std::lock_guard<typename std::remove_reference<LockableType>::type> m_guard;
-			/// The protected value.
-			ValueReferenceType m_value;
-		};
-
-		friend Guard;
 
 		/**
 		 * @brief Construct a new Safe object
