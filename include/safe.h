@@ -13,13 +13,8 @@
 
 namespace safe
 {
-	template<typename, typename> class Access;
-	template<typename, typename> class Safe;
-}  // namespace safe
-
-namespace safe
-{
-	struct default_construct_lockable {};
+	struct default_construct_lockable_t {};
+	static constexpr default_construct_lockable_t default_construct_lockable;
 	
 	/**
 	 * @brief A class that wraps a value and a mutex
@@ -37,6 +32,20 @@ namespace safe
 	{
 		using RemoveRefValueType = typename std::remove_reference<ValueType>::type;
 		using RemoveRefLockableType = typename std::remove_reference<LockableType>::type;
+		
+		template<typename NonReferenceLockableType>
+		struct MutableIfNotReferenceLockableType
+		{
+			mutable NonReferenceLockableType lockable;
+		};
+		template<typename ReferenceLockableType>
+		struct MutableIfNotReferenceLockableType<ReferenceLockableType&>
+		{
+			MutableIfNotReferenceLockableType(ReferenceLockableType& lockable):
+				lockable(lockable)
+			{}
+			ReferenceLockableType& lockable;
+		};
 		
 		/**
 		 * @brief A class that locks a Safe object with unique lock behavior and
@@ -93,12 +102,10 @@ namespace safe
 			 */
 			ReferenceType operator*() noexcept;
 
-			const LockType& getLock() const noexcept;
-			LockType& getLock() noexcept;
+			/// The lock that manages the lockable object.
+			mutable LockType lock;
 
 		private:
-			/// The lock that manages the lockable object.
-			LockType m_lock;
 			/// The protected value.
 			ReferenceType m_value;
 		};
@@ -125,7 +132,7 @@ namespace safe
 		 * @param valueArgs Perfect forwarding arguments to construct the value.
 		 */
 		template<typename... ValueArgs>
-		Safe(default_construct_lockable tag, ValueArgs&&... valueArgs);
+		Safe(default_construct_lockable_t tag, ValueArgs&&... valueArgs);
 		/**
 		 * @brief Construct a new Safe object, perfect forwarding one argument to the
 		 * lockable's constructor and perfect forwarding the other arguments
@@ -165,7 +172,9 @@ namespace safe
 
 	private:
 		/// The lockable object that protects the value.
-		LockableType m_lockable;
+		// LockableType m_lockable;
+		MutableIfNotReferenceLockableType<LockableType> m_lockable;
+
 		/// The value to protect.
 		ValueType m_value;
 	};

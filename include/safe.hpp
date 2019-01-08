@@ -18,13 +18,13 @@ namespace safe
 	template<typename ValueType, typename LockableType>
 	template<typename LockType, bool Shared>
 	Safe<ValueType, LockableType>::AccessImpl<LockType, Shared>::AccessImpl(const Safe<ValueType, LockableType>& safe) noexcept:
-		m_lock(safe.m_lockable),
+		lock(safe.m_lockable.lockable),
 		m_value(safe.m_value)
 	{}
 	template<typename ValueType, typename LockableType>
 	template<typename LockType, bool Shared>
 	Safe<ValueType, LockableType>::AccessImpl<LockType, Shared>::AccessImpl(Safe<ValueType, LockableType>& safe) noexcept:
-		m_lock(safe.m_lockable),
+		lock(safe.m_lockable.lockable),
 		m_value(safe.m_value)
 	{}
 	template<typename ValueType, typename LockableType>
@@ -52,25 +52,12 @@ namespace safe
 		return m_value;
 	}
 
-	template<typename ValueType, typename LockableType>
-	template<typename LockType, bool Shared>
-	const LockType& Safe<ValueType, LockableType>::AccessImpl<LockType, Shared>::getLock() const noexcept
-	{
-		return m_lock;
-	}
-	template<typename ValueType, typename LockableType>
-	template<typename LockType, bool Shared>
-	LockType& Safe<ValueType, LockableType>::AccessImpl<LockType, Shared>::getLock() noexcept
-	{
-		return m_lock;
-	}
-
 	/**
 	 * Safe
 	 */
   template<typename ValueType, typename LockableType>
   template<typename... ValueArgs>
-  Safe<ValueType, LockableType>::Safe(default_construct_lockable, ValueArgs&&... valueArgs):
+  Safe<ValueType, LockableType>::Safe(default_construct_lockable_t, ValueArgs&&... valueArgs):
 		m_lockable(),
 		m_value(std::forward<ValueArgs>(valueArgs)...)
   {}
