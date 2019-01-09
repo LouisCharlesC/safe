@@ -36,6 +36,11 @@ namespace safe
 		template<typename NonReferenceLockableType>
 		struct MutableIfNotReferenceLockableType
 		{
+			MutableIfNotReferenceLockableType() = default;
+			template<typename LockableArg>
+			MutableIfNotReferenceLockableType(LockableArg&& lockableArg):
+				lockable(std::forward<LockableArg>(lockableArg))
+			{}
 			mutable NonReferenceLockableType lockable;
 		};
 		template<typename ReferenceLockableType>
@@ -78,6 +83,14 @@ namespace safe
 			 */
 			AccessImpl(Safe& safe) noexcept;
 
+			template<typename... LockArgs>
+			AccessImpl(ReferenceType value, LockArgs&&... lockArgs);
+
+			template<bool OtherShared>
+			AccessImpl(const AccessImpl<std::unique_lock<RemoveRefLockableType>, OtherShared>& access) noexcept;
+			template<bool OtherShared>
+			AccessImpl(AccessImpl<std::unique_lock<RemoveRefLockableType>, OtherShared>& access) noexcept;
+
 			/**
 			 * @brief Const accessor function.
 			 * @return ConstValuePointerType The protected value.
@@ -115,7 +128,7 @@ namespace safe
 		using ReferenceType = RemoveRefValueType&;
 
 		template<template<typename> class LockType>
-		using SharedAccess = AccessImpl<LockType<RemoveRefLockableType>, true>;
+		using ConstAccess = AccessImpl<LockType<RemoveRefLockableType>, true>;
 		template<template<typename> class LockType>
 		using Access = AccessImpl<LockType<RemoveRefLockableType>, false>;
 		
@@ -146,17 +159,17 @@ namespace safe
 		template<typename LockableArg, typename... ValueArgs>
 		Safe(LockableArg&& lockableArg, ValueArgs&&... valueArgs);
 
-		/**
-		 * @brief %Safe access to the protected value through a SharedGuard object.
-		 * 
-		 * @return SharedGuard
-		 */
-		template<template<typename> class LockType>
-		SharedAccess<LockType> accessShared() const noexcept;
-		template<template<typename> class LockType>
-		SharedAccess<LockType> access() const noexcept;
-		template<template<typename> class LockType>
-		Access<LockType> access() noexcept;
+		// /**
+		//  * @brief %Safe access to the protected value through a SharedGuard object.
+		//  * 
+		//  * @return SharedGuard
+		//  */
+		// template<template<typename> class LockType>
+		// ConstAccess<LockType> accessShared() const noexcept;
+		// template<template<typename> class LockType>
+		// ConstAccess<LockType> access() const noexcept;
+		// template<template<typename> class LockType>
+		// Access<LockType> access() noexcept;
 		/**
 		 * @brief Unsafe const accessor function.
 		 * 
@@ -172,12 +185,20 @@ namespace safe
 
 	private:
 		/// The lockable object that protects the value.
-		// LockableType m_lockable;
 		MutableIfNotReferenceLockableType<LockableType> m_lockable;
 
 		/// The value to protect.
 		ValueType m_value;
 	};
+
+	template<typename SafeType>
+	using StdLockGuardConstAccess = typename SafeType::template ConstAccess<std::lock_guard>;
+	template<typename SafeType>
+	using StdUniqueLockConstAccess = typename SafeType::template ConstAccess<std::unique_lock>;
+	template<typename SafeType>
+	using StdLockGuardAccess = typename SafeType::template Access<std::lock_guard>;
+	template<typename SafeType>
+	using StdUniqueLockAccess = typename SafeType::template Access<std::unique_lock>;
 }  // namespace safe
 
 #endif /* SAFE_H_ */

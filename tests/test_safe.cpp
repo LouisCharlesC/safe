@@ -11,10 +11,17 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 
+#include <condition_variable>
+#include <mutex>
+
 class DummyLockable
 {
 public:
 	MOCK_METHOD0(touch, void());
+
+	MOCK_METHOD0(lock, void());
+	MOCK_METHOD0(try_lock, bool());
+	MOCK_METHOD0(unlock, void());
 };
 template<typename>
 class DummyLock
@@ -29,13 +36,6 @@ public:
 private:
 };
 
-// class MockValue: public std::vector<int>
-// {
-// public:
-// 	using std::vector<int>::vector;
-//   MOCK_CONST_METHOD0(touch, void());
-// };
-
 class SafeTest : public testing::Test {
 public:
 	using SafeLockableRefValueRefType = safe::Safe<int&, DummyLockable&>;
@@ -45,10 +45,10 @@ public:
 	using SafeLockableValueRefType = safe::Safe<int&, DummyLockable>;
 	using SafeLockableValueType = safe::Safe<int, DummyLockable>;
 
-	using SafeMutexRefValueRefSharedAccessType = SafeLockableRefValueRefType::SharedAccess<DummyLock>;
-	using SafeMutexRefValueRefAccessType = SafeLockableRefValueRefType::Access<DummyLock>;
-	using SafeMutexValueSharedAccessType = SafeLockableValueType::SharedAccess<DummyLock>;
-	using SafeMutexValueAccessType = SafeLockableValueType::Access<DummyLock>;
+	using SafeLockableRefValueRefConstAccessType = SafeLockableRefValueRefType::ConstAccess<DummyLock>;
+	using SafeLockableRefValueRefAccessType = SafeLockableRefValueRefType::Access<DummyLock>;
+	using SafeLockableValueConstAccessType = SafeLockableValueType::ConstAccess<DummyLock>;
+	using SafeLockableValueAccessType = SafeLockableValueType::Access<DummyLock>;
 
 	SafeTest():
 		value(42)
@@ -75,110 +75,111 @@ void readmeWithoutSafeExample()
 
 void readmeWithSafeExample()
 {
+	// Convenience typedef
+	using SafeVectorInt = safe::Safe<std::vector<int>, std::mutex&>;
+
 	std::mutex wrong_mutex;
-	safe::Safe<std::vector<int>> safeVec; // <-- the right mutex is in here!
+	std::mutex right_mutex;
+	SafeVectorInt safeVec(right_mutex); // <-- value+mutex association!
 	{
-		safe::Safe<std::vector<int>>::Access<std::lock_guard> vec(safeVec); // <-- right mutex: guaranteed!
-		vec->push_back(42);
+		safe::StdLockGuardAccess<SafeVectorInt> vec(safeVec); // <-- right mutex: guaranteed!
+		vec->push_back(42); // access the vector using pointer semantics: * and ->
 	}
 	safeVec.unsafe().pop_back(); // <-- unprotected access: clearly expressed!
 }
 
-TEST_F(SafeTest, MutexRefValueRefConstructor) {
+void readmeUniqueLockAccessIntoConditionVariableExample()
+{
+	safe::Safe<int> safe;
+	safe::StdUniqueLockAccess<safe::Safe<int>> access(safe);
+	std::condition_variable cv;
+	cv.wait(access.lock);
+}
+
+TEST_F(SafeTest, LockableRefValueRefConstructor) {
 	SafeLockableRefValueRefType safe(lockable, value);
 
 	EXPECT_EQ(&safe.unsafe(), &value);
 	EXPECT_EQ(&static_cast<const SafeLockableRefValueRefType&>(safe).unsafe(), &safe.unsafe());
 }
-TEST_F(SafeTest, MutexRefConstValueRefConstructor) {
+TEST_F(SafeTest, LockableRefConstValueRefConstructor) {
 	SafeLockableRefConstValueRefType safe(lockable, value);
 
 	EXPECT_EQ(&safe.unsafe(), &value);
 	EXPECT_EQ(&static_cast<const SafeLockableRefConstValueRefType&>(safe).unsafe(), &safe.unsafe());
 }
-TEST_F(SafeTest, MutexRefValueConstructor) {
+TEST_F(SafeTest, LockableRefValueConstructor) {
 	SafeLockableRefValueType safe(lockable, value);
 
 	EXPECT_EQ(safe.unsafe(), value);
 	EXPECT_EQ(&static_cast<const SafeLockableRefValueType&>(safe).unsafe(), &safe.unsafe());
 }
-TEST_F(SafeTest, MutexRefConstValueConstructor) {
+TEST_F(SafeTest, LockableRefConstValueConstructor) {
 	SafeLockableRefConstValueType safe(lockable, value);
 #
 	EXPECT_EQ(safe.unsafe(), value);
 	EXPECT_EQ(&static_cast<const SafeLockableRefConstValueType&>(safe).unsafe(), &safe.unsafe());
 }
-TEST_F(SafeTest, MutexValueRefConstructor) {
+TEST_F(SafeTest, DefaultLockableValueRefConstructor) {
 	SafeLockableValueRefType safe(safe::default_construct_lockable, value);
 
 	EXPECT_EQ(&safe.unsafe(), &value);
 	EXPECT_EQ(&static_cast<const SafeLockableValueRefType&>(safe).unsafe(), &safe.unsafe());
 }
-TEST_F(SafeTest, MutexValueConstructor) {
+TEST_F(SafeTest, DefaultLockableValueConstructor) {
 	SafeLockableValueType safe(safe::default_construct_lockable, value);
 
 	EXPECT_EQ(safe.unsafe(), value);
 	EXPECT_EQ(&static_cast<const SafeLockableValueType&>(safe).unsafe(), &safe.unsafe());
 }
-TEST_F(SafeTest, SafeMutexRefValueRefFunctionSharedAccess) {
+TEST_F(SafeTest, DefaultLockableDefaultValueConstructor) {
+	SafeLockableValueType safe;
+}
+TEST_F(AccessTest, SafeLockableRefValueRefConstAccess) {
 	SafeLockableRefValueRefType safe(lockable, value);
 	
-	auto access = safe.accessShared<DummyLock>();
+	SafeLockableRefValueRefConstAccessType access(safe);
 	
 	EXPECT_EQ(&*access, &value);
-	EXPECT_EQ(&*static_cast<const SafeMutexRefValueRefSharedAccessType&>(access), &value);
+	EXPECT_EQ(&*static_cast<const SafeLockableRefValueRefConstAccessType&>(access), &value);
 	EXPECT_EQ(access.operator->(), &value);
-	EXPECT_EQ(static_cast<const SafeMutexRefValueRefSharedAccessType&>(access).operator->(), &value);
+	EXPECT_EQ(static_cast<const SafeLockableRefValueRefConstAccessType&>(access).operator->(), &value);
 	EXPECT_EQ(&access.lock.lockable, &lockable);
-	EXPECT_EQ(&static_cast<const SafeMutexRefValueRefSharedAccessType&>(access).lock.lockable, &lockable);
-
-	EXPECT_CALL(lockable, touch()).Times(2);
-	access.lock.lockable.touch();
-	static_cast<const SafeMutexRefValueRefSharedAccessType&>(access).lock.lockable.touch();
+	EXPECT_EQ(&static_cast<const SafeLockableRefValueRefConstAccessType&>(access).lock.lockable, &lockable);
 
 }
-TEST_F(SafeTest, SafeMutexValueFunctionSharedAccess) {
+TEST_F(SafeTest, SafeLockableValueConstAccess) {
 	SafeLockableValueType safe(safe::default_construct_lockable, value);
 	
-	auto access = safe.accessShared<DummyLock>();
+	SafeLockableValueConstAccessType access(safe);
 	
 	EXPECT_EQ(&*access, &safe.unsafe());
-	EXPECT_EQ(&*static_cast<const SafeMutexValueSharedAccessType&>(access), &safe.unsafe());
+	EXPECT_EQ(&*static_cast<const SafeLockableValueConstAccessType&>(access), &safe.unsafe());
 	EXPECT_EQ(access.operator->(), &safe.unsafe());
-	EXPECT_EQ(static_cast<const SafeMutexValueSharedAccessType&>(access).operator->(), &safe.unsafe());
+	EXPECT_EQ(static_cast<const SafeLockableValueConstAccessType&>(access).operator->(), &safe.unsafe());
 }
-TEST_F(SafeTest, ConstFunctionAccess) {
-	const SafeLockableRefValueRefType safe(lockable, value);
-	
-	auto access = safe.access<DummyLock>();
-	
-	EXPECT_EQ(&*access, &value);
-	EXPECT_EQ(&*static_cast<const SafeMutexRefValueRefSharedAccessType&>(access), &value);
-	EXPECT_EQ(access.operator->(), &value);
-	EXPECT_EQ(static_cast<const SafeMutexRefValueRefSharedAccessType&>(access).operator->(), &value);
-	EXPECT_EQ(&access.lock.lockable, &lockable);
-	EXPECT_EQ(&static_cast<const SafeMutexRefValueRefSharedAccessType&>(access).lock.lockable, &lockable);
-
-	EXPECT_CALL(lockable, touch()).Times(2);
-	access.lock.lockable.touch();
-	static_cast<const SafeMutexRefValueRefSharedAccessType&>(access).lock.lockable.touch();
-}
-TEST_F(SafeTest, FunctionAccess) {
+TEST_F(SafeTest, SafeLockableRefValueRefAccess) {
 	SafeLockableRefValueRefType safe(lockable, value);
 	
-	auto access = safe.access<DummyLock>();
+	SafeLockableRefValueRefAccessType access(safe);
 	
 	EXPECT_EQ(&*access, &value);
-	EXPECT_EQ(&*static_cast<const SafeMutexRefValueRefAccessType&>(access), &value);
+	EXPECT_EQ(&*static_cast<const SafeLockableRefValueRefAccessType&>(access), &value);
 	EXPECT_EQ(access.operator->(), &value);
-	EXPECT_EQ(static_cast<const SafeMutexRefValueRefAccessType&>(access).operator->(), &value);
+	EXPECT_EQ(static_cast<const SafeLockableRefValueRefAccessType&>(access).operator->(), &value);
 	EXPECT_EQ(&access.lock.lockable, &lockable);
-	EXPECT_EQ(&static_cast<const SafeMutexRefValueRefAccessType&>(access).lock.lockable, &lockable);
-
-	EXPECT_CALL(lockable, touch()).Times(2);
-	access.lock.lockable.touch();
-	static_cast<const SafeMutexRefValueRefAccessType&>(access).lock.lockable.touch();
+	EXPECT_EQ(&static_cast<const SafeLockableRefValueRefAccessType&>(access).lock.lockable, &lockable);
 }
+TEST_F(SafeTest, SafeLockableValueAccess) {
+	SafeLockableValueType safe(safe::default_construct_lockable, value);
+	
+	SafeLockableValueAccessType access(safe);
+	
+	EXPECT_EQ(&*access, &safe.unsafe());
+	EXPECT_EQ(&*static_cast<const SafeLockableValueAccessType&>(access), &safe.unsafe());
+	EXPECT_EQ(access.operator->(), &safe.unsafe());
+	EXPECT_EQ(static_cast<const SafeLockableValueAccessType&>(access).operator->(), &safe.unsafe());
+	}
 
 TEST_F(AccessTest, ReturnTypes) {
 	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock>::ConstPointerType, const int*>::value, "");
@@ -186,18 +187,78 @@ TEST_F(AccessTest, ReturnTypes) {
 	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock>::ConstReferenceType, const int&>::value, "");
 	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock>::ReferenceType, int&>::value, "");
 
-	static_assert(std::is_same<SafeLockableRefValueRefType::SharedAccess<DummyLock>::ConstPointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableRefValueRefType::SharedAccess<DummyLock>::PointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableRefValueRefType::SharedAccess<DummyLock>::ConstReferenceType, const int&>::value, "");
-	static_assert(std::is_same<SafeLockableRefValueRefType::SharedAccess<DummyLock>::ReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::ConstAccess<DummyLock>::ConstPointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::ConstAccess<DummyLock>::PointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::ConstAccess<DummyLock>::ConstReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::ConstAccess<DummyLock>::ReferenceType, const int&>::value, "");
 
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::ConstPointerType, const int*>::value, "");
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::PointerType, int*>::value, "");
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::ConstReferenceType, const int&>::value, "");
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::ReferenceType, int&>::value, "");
 
-	static_assert(std::is_same<SafeLockableValueType::SharedAccess<DummyLock>::ConstPointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableValueType::SharedAccess<DummyLock>::PointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableValueType::SharedAccess<DummyLock>::ConstReferenceType, const int&>::value, "");
-	static_assert(std::is_same<SafeLockableValueType::SharedAccess<DummyLock>::ReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::ConstAccess<DummyLock>::ConstPointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::ConstAccess<DummyLock>::PointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::ConstAccess<DummyLock>::ConstReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::ConstAccess<DummyLock>::ReferenceType, const int&>::value, "");
+}
+TEST_F(AccessTest, StdUniqueLockConstAccessToGuardLockConstAccess) {
+	SafeLockableRefValueRefType safe(lockable, value);
+	
+	{
+		testing::InSequence _;
+		EXPECT_CALL(lockable, lock());
+		EXPECT_CALL(lockable, touch());
+		EXPECT_CALL(lockable, unlock());
+		EXPECT_CALL(lockable, touch());
+	}
+
+	{
+		safe::StdUniqueLockConstAccess<SafeLockableRefValueRefType> uniqueLockAccess(safe);
+		{
+			lockable.touch();
+			safe::StdLockGuardConstAccess<SafeLockableRefValueRefType> lockGuardAccess(uniqueLockAccess);
+		}
+		lockable.touch();
+	}
+}
+TEST_F(AccessTest, StdUniqueLockAccessToGuardLockConstAccess) {
+	SafeLockableRefValueRefType safe(lockable, value);
+	
+	{
+		testing::InSequence _;
+		EXPECT_CALL(lockable, lock());
+		EXPECT_CALL(lockable, touch());
+		EXPECT_CALL(lockable, unlock());
+		EXPECT_CALL(lockable, touch());
+	}
+
+	{
+		safe::StdUniqueLockAccess<SafeLockableRefValueRefType> uniqueLockAccess(safe);
+		{
+			lockable.touch();
+			safe::StdLockGuardConstAccess<SafeLockableRefValueRefType> lockGuardAccess(uniqueLockAccess);
+		}
+		lockable.touch();
+	}
+}
+TEST_F(AccessTest, StdUniqueLockAccessToGuardLockAccess) {
+	SafeLockableRefValueRefType safe(lockable, value);
+	
+	{
+		testing::InSequence _;
+		EXPECT_CALL(lockable, lock());
+		EXPECT_CALL(lockable, touch());
+		EXPECT_CALL(lockable, unlock());
+		EXPECT_CALL(lockable, touch());
+	}
+
+	{
+		safe::StdUniqueLockAccess<SafeLockableRefValueRefType> uniqueLockAccess(safe);
+		{
+			lockable.touch();
+			safe::StdLockGuardAccess<SafeLockableRefValueRefType> lockGuardAccess(uniqueLockAccess);
+		}
+		lockable.touch();
+	}
 }

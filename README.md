@@ -18,11 +18,15 @@ vec.pop_back(); // <-- unprotected access, is this intended ?
 ```
 ### With Safe
 ```c++
+// Convenience typedef
+using SafeVectorInt = safe::Safe<std::vector<int>, std::mutex&>;
+
 std::mutex wrong_mutex;
-safe::Safe<std::vector<int>> safeVec; // <-- the right mutex is in here!
+std::mutex right_mutex;
+SafeVectorInt safeVec(right_mutex); // <-- value+mutex association!
 {
-  safe::Safe<std::vector<int>>::Guard vec(safeVec); // <-- right mutex: guaranteed!
-  vec->push_back(42);
+  safe::StdLockGuardAccess<SafeVectorInt> vec(safeVec); // <-- right mutex: guaranteed!
+  vec->push_back(42); // access the vector using pointer semantics: * and ->
 }
 safeVec.unsafe().pop_back(); // <-- unprotected access: clearly expressed!
 ```
