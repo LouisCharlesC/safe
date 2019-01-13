@@ -17,23 +17,37 @@ namespace safe
 	static constexpr default_construct_lockable_t default_construct_lockable;
 	
 	/**
-	 * @brief A class that wraps a value and a mutex
-	 * object to protect the value.
+	 * @brief Wraps a value together with the lockable object that
+	 * protects it for multi-threaded access.
 	 * 
-	 * The value is hidden by the Safe class, although it can be
-	 * accessed using the unsafe() function. The safe way to access
-	 * the value is through the Lock and Guard classes.
+	 * The Safe class does two things. First, it hides the value object
+	 * and associates it with the lockable object that protects it.
+	 * Second, it defines alises for the Access classes that will manage
+	 * the lockable object and give access to the value.
+	 * The value can also be accessed without locking the lockable object
+	 * through the unsafe() functions.
 	 * 
-	 * @tparam ValueType The type of the shared value to protects.
+	 * @tparam ValueType The type of the value to protect.
 	 * @tparam LockableType The type of the lockable object.
 	 */
 	template<typename ValueType, typename LockableType = std::mutex>
 	class Safe
 	{
+	private:
+		/// Type ValueType with reference removed, if present
 		using RemoveRefValueType = typename std::remove_reference<ValueType>::type;
+		/// Type LockableType with reference removed, if present
 		using RemoveRefLockableType = typename std::remove_reference<LockableType>::type;
 		
-		template<typename NonReferenceLockableType>
+		/**
+		 * @brief A helper class that defines a member variable of type
+		 * MaybeReferenceLockableType. The variable is declared mutable if
+		 * MaybeReferenceLockableType is not a reference, the varialbe is
+		 * not mutable if MaybeReferenceLockableType is a reference.
+		 * 
+		 * @tparam MaybeReferenceLockableType 
+		 */
+		template<typename MaybeReferenceLockableType>
 		struct MutableIfNotReferenceLockableType
 		{
 			MutableIfNotReferenceLockableType() = default;
@@ -41,7 +55,8 @@ namespace safe
 			MutableIfNotReferenceLockableType(LockableArg&& lockableArg):
 				lockable(std::forward<LockableArg>(lockableArg))
 			{}
-			mutable NonReferenceLockableType lockable;
+			/// Mutable Lockable object.
+			mutable MaybeReferenceLockableType lockable;
 		};
 		template<typename ReferenceLockableType>
 		struct MutableIfNotReferenceLockableType<ReferenceLockableType&>
@@ -49,69 +64,106 @@ namespace safe
 			MutableIfNotReferenceLockableType(ReferenceLockableType& lockable):
 				lockable(lockable)
 			{}
+			/// Reference to a Lockable object.
 			ReferenceLockableType& lockable;
 		};
 		
 		/**
-		 * @brief A class that locks a Safe object with unique lock behavior and
-		 * gives access to the Safe object's value.
+		 * @brief Manages a lockable object and gives access to the value
+		 * from a Safe object.
+		 * 
+		 * The LockType template parameter determines the locking behavior
+		 * of the AccessImpl class. LockType can for instance be 
+		 * std::lock_guard or std::unique_lock. The locking behavior will
+		 * be as expected. The value can be accessed through an AccessImpl
+		 * object using pointer semantics * and ->.
+		 * 
+		 * @tparam LockType The type of the lock object that manages the
+		 * lockable object.
+		 * @tparam Shared Whether the access should be const.
 		 */
 		template<typename LockType, bool Shared>
 		class AccessImpl
 		{
 		private:
-			using AccessValueType = typename std::conditional<Shared, const RemoveRefValueType, RemoveRefValueType>::type;
+			/// ValueType with const qualifier if template parameter Shared is true.
+			using ConditionallyConstValueType = typename std::conditional<Shared, const RemoveRefValueType, RemoveRefValueType>::type;
 
 		public:
-			using ConstPointerType = const AccessValueType*;
-			using PointerType = AccessValueType*;
-			using ConstReferenceType = const AccessValueType&;
-			using ReferenceType = AccessValueType&;
+			/// Pointer-to-const ValueType
+			using ConstPointerType = const ConditionallyConstValueType*;
+			/// Pointer-to-const ValueType if Shared is true, pointer to
+			/// ValueType otherwise.
+			using PointerType = ConditionallyConstValueType*;
+			/// Reference-to-const ValueType
+			using ConstReferenceType = const ConditionallyConstValueType&;
+			/// Reference-to-const ValueType if Shared is true, reference to
+			/// ValueType otherwise.
+			using ReferenceType = ConditionallyConstValueType&;
 
 			/**
-			 * @brief Locks safe with unique lock behavior and gives
-			 * access to its value.
+			 * @brief Construct an AccessImpl object that will manage a Safe
+			 * object, locking its lockable object and exposing its value
+			 * object.
 			 * 
-			 * @param[in] safe The Safe object to lock.
+			 * @param[in] safe The Safe object to manage.
 			 */
 			AccessImpl(const Safe& safe) noexcept;
 			/**
-			 * @brief Locks safe with unique lock behavior and gives
-			 * access to its value.
+			 * @brief Construct an AccessImpl object that will manage a Safe
+			 * object, locking its lockable object and exposing its value
+			 * object.
 			 * 
-			 * @param[in] safe The Safe object to lock.
+			 * @param[in] safe The Safe object to manage.
 			 */
 			AccessImpl(Safe& safe) noexcept;
 
+			/**
+			 * @brief Construct an AccessImpl object from a reference to the
+			 * value to expose and perfect forwarding the other arguments to
+			 * construct the LockType object.
+			 * 
+			 * This constructor allows one to use LockType objects with complex
+			 * constructors, to change the type of the LockType or to pass
+			 * locking behavior tags (like std::adopt_lock, std::try_to_lock
+			 * and std::defer_lock) to the LockType object.
+			 * This can be useful to change from an AccessImpl object with
+			 * std::unique_lock behavior to one with std::lock_guard
+			 * behavior. This is done so, with the lockable object readily
+			 * locked by the uniqueLockAccess object:
+			 * AccessImpl<std::lock_guard, SharedOrNot> lockguardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
+			 * 
+			 * @tparam LockArgs Perfect forwarding types to construct the
+			 * LockType object.
+			 * @param value A reference to the value to expose.
+			 * @param lockArgs Perfect forwarding arguments to construct the
+			 * LockType object.
+			 */
 			template<typename... LockArgs>
 			AccessImpl(ReferenceType value, LockArgs&&... lockArgs);
 
-			template<bool OtherShared>
-			AccessImpl(const AccessImpl<std::unique_lock<RemoveRefLockableType>, OtherShared>& access) noexcept;
-			template<bool OtherShared>
-			AccessImpl(AccessImpl<std::unique_lock<RemoveRefLockableType>, OtherShared>& access) noexcept;
-
 			/**
-			 * @brief Const accessor function.
-			 * @return ConstValuePointerType The protected value.
+			 * @brief Const accessor to the value.
+			 * @return ConstPointerType Const pointer to the protected value.
 			 */
 			ConstPointerType operator->() const noexcept;
 
 			/**
-			 * @brief Accessor function.
-			 * @return ValuePointerType The protected value.
+			 * @brief Accessor to the value.
+			 * @return ValuePointerType Pointer to the protected value.
 			 */
 			PointerType operator->() noexcept;
 
 			/**
-			 * @brief Const accessor function.
-			 * @return ConstValueReferenceType The protected value.
+			 * @brief Const accessor to the value.
+			 * @return ConstReferenceType Const reference to the protected
+			 * value.
 			 */
 			ConstReferenceType operator*() const noexcept;
 
 			/**
-			 * @brief Const accessor function.
-			 * @return ValueReferenceType The protected value.
+			 * @brief Accessor to the value.
+			 * @return ReferenceType Reference to the protected.
 			 */
 			ReferenceType operator*() noexcept;
 
@@ -124,79 +176,92 @@ namespace safe
 		};
 
 	public:
+		/// Reference-to-const ValueType.
 		using ConstReferenceType = const RemoveRefValueType&;
+		/// Reference to ValueType.
 		using ReferenceType = RemoveRefValueType&;
 
+		/// Template type alias to an AccessImpl with const access
 		template<template<typename> class LockType>
-		using ConstAccess = AccessImpl<LockType<RemoveRefLockableType>, true>;
+		using SharedAccess = AccessImpl<LockType<RemoveRefLockableType>, true>;
+		/// Template type alias to an AccessImpl with non-const access
 		template<template<typename> class LockType>
 		using Access = AccessImpl<LockType<RemoveRefLockableType>, false>;
 		
 		/**
-		 * @brief Construct a new Safe object
+		 * @brief Construct a Safe object
 		 */
 		Safe() = default;
 		/**
-		 * @brief Construct a new Safe object with default construction of the lockable
-		 * object and perfect forwarding of the arguments of the value's constructor.
+		 * @brief Construct a new Safe object with default construction of
+		 * the LockableType object and perfect forwarding of the other
+		 * arguments to construct the ValueType object.
 		 * 
-		 * @tparam ValueArgs Perfect forwarding types to construct the value.
-		 * @param tag Indicates that the lockable object should be default constructed.
-		 * @param valueArgs Perfect forwarding arguments to construct the value.
+		 * @tparam ValueArgs Perfect forwarding types to construct the ValueType object.
+		 * @param tag Indicates that the LockableType object should be default constructed.
+		 * @param valueArgs Perfect forwarding arguments to construct the ValueType object.
 		 */
 		template<typename... ValueArgs>
 		Safe(default_construct_lockable_t tag, ValueArgs&&... valueArgs);
 		/**
-		 * @brief Construct a new Safe object, perfect forwarding one argument to the
-		 * lockable's constructor and perfect forwarding the other arguments
-		 * of the value's constructor.
+		 * @brief Construct a Safe object, perfect forwarding the first
+		 * argument to construct the LockableType object and perfect forwarding
+		 * the other arguments to construct the ValueType object.
 		 * 
-		 * @tparam LockableArg Perfect forwarding type to construct the lockable.
-		 * @tparam ValueArgs Perfect forwarding types to construct the value.
-		 * @param lockableArg Perfect forwarding argument to construct the lockable.
-		 * @param valueArgs Perfect forwarding arguments to construct the value.
+		 * @tparam LockableArg Perfect forwarding type to construct the LockableType object.
+		 * @tparam ValueArgs Perfect forwarding types to construct the ValueType object.
+		 * @param lockableArg Perfect forwarding argument to construct the LockableType object.
+		 * @param valueArgs Perfect forwarding arguments to construct the ValueType object.
 		 */
 		template<typename LockableArg, typename... ValueArgs>
 		Safe(LockableArg&& lockableArg, ValueArgs&&... valueArgs);
 
-		// /**
-		//  * @brief %Safe access to the protected value through a SharedGuard object.
-		//  * 
-		//  * @return SharedGuard
-		//  */
-		// template<template<typename> class LockType>
-		// ConstAccess<LockType> accessShared() const noexcept;
-		// template<template<typename> class LockType>
-		// ConstAccess<LockType> access() const noexcept;
-		// template<template<typename> class LockType>
-		// Access<LockType> access() noexcept;
 		/**
-		 * @brief Unsafe const accessor function.
+		 * @brief Unsafe const accessor to the value.
 		 * 
-		 * @return ConstValueReferenceType The unprotected value.
+		 * @return ConstReferenceType Const reference to the value.
 		 */
 		ConstReferenceType unsafe() const noexcept;
 		/**
-		 * @brief Unsafe accessor function.
+		 * @brief Unsafe accessor to the value.
 		 * 
-		 * @return ValueReferenceType The unprotected value.
+		 * @return ReferenceType Reference to the value.
 		 */
 		ReferenceType unsafe() noexcept;
 
+		/**
+		 * @brief Const accessor to the lockable object.
+		 * 
+		 * @return const RemoveRefLockableType& Const reference to the
+		 * lockable object.
+		 */
+		const RemoveRefLockableType& lockable() const noexcept;
+
+		/**
+		 * @brief Accessor to the lockable object.
+		 * 
+		 * @return RemoveRefLockableType& Reference to the lockable object.
+		 */
+		RemoveRefLockableType& lockable() noexcept;
+
 	private:
-		/// The lockable object that protects the value.
+		/// The helper class instance that holds the lockable object, or a reference to it.
 		MutableIfNotReferenceLockableType<LockableType> m_lockable;
 
 		/// The value to protect.
 		ValueType m_value;
 	};
 
+	/// SharedAccess with std::lock_guard behavior
 	template<typename SafeType>
-	using StdLockGuardConstAccess = typename SafeType::template ConstAccess<std::lock_guard>;
+	using StdLockGuardSharedAccess = typename SafeType::template SharedAccess<std::lock_guard>;
+	/// SharedAccess with std::unique_lock behavior
 	template<typename SafeType>
-	using StdUniqueLockConstAccess = typename SafeType::template ConstAccess<std::unique_lock>;
+	using StdUniqueLockSharedAccess = typename SafeType::template SharedAccess<std::unique_lock>;
+	/// Access with std::lock_guard behavior
 	template<typename SafeType>
 	using StdLockGuardAccess = typename SafeType::template Access<std::lock_guard>;
+	/// Access with std::unique_lock behavior
 	template<typename SafeType>
 	using StdUniqueLockAccess = typename SafeType::template Access<std::unique_lock>;
 }  // namespace safe

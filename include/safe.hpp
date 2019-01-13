@@ -36,18 +36,6 @@ namespace safe
 	{}
 	template<typename ValueType, typename LockableType>
 	template<typename LockType, bool Shared>
-	template<bool OtherShared>
-	Safe<ValueType, LockableType>::AccessImpl<LockType, Shared>::AccessImpl(const AccessImpl<std::unique_lock<RemoveRefLockableType>, OtherShared>& access) noexcept:
-		AccessImpl(*access, *access.lock.release(), std::adopt_lock)
-	{}
-	template<typename ValueType, typename LockableType>
-	template<typename LockType, bool Shared>
-	template<bool OtherShared>
-	Safe<ValueType, LockableType>::AccessImpl<LockType, Shared>::AccessImpl(AccessImpl<std::unique_lock<RemoveRefLockableType>, OtherShared>& access) noexcept:
-		AccessImpl(*access, *access.lock.release(), std::adopt_lock)
-	{}
-	template<typename ValueType, typename LockableType>
-	template<typename LockType, bool Shared>
 	typename Safe<ValueType, LockableType>::template AccessImpl<LockType, Shared>::ConstPointerType Safe<ValueType, LockableType>::AccessImpl<LockType, Shared>::operator->() const noexcept
 	{
 		return &m_value;
@@ -86,24 +74,6 @@ namespace safe
 		m_lockable(std::forward<LockableArg>(lockableArg)),
 		m_value(std::forward<ValueArgs>(valueArgs)...)
   {}
-  // template<typename ValueType, typename LockableType>
-	// template<template<typename> class LockType>
-  // typename Safe<ValueType, LockableType>::template SharedAccess<LockType> Safe<ValueType, LockableType>::accessShared() const noexcept
-  // {
-  //   return {*this};
-  // }
-  // template<typename ValueType, typename LockableType>
-	// template<template<typename> class LockType>
-  // typename Safe<ValueType, LockableType>::template SharedAccess<LockType> Safe<ValueType, LockableType>::access() const noexcept
-  // {
-  //   return {*this};
-  // }
-  // template<typename ValueType, typename LockableType>
-	// template<template<typename> class LockType>
-  // typename Safe<ValueType, LockableType>::template Access<LockType> Safe<ValueType, LockableType>::access() noexcept
-  // {
-  //   return {*this};
-  // }
   template<typename ValueType, typename LockableType>
   typename Safe<ValueType, LockableType>::ConstReferenceType Safe<ValueType, LockableType>::unsafe() const noexcept
 	{
@@ -113,6 +83,17 @@ namespace safe
   typename Safe<ValueType, LockableType>::ReferenceType Safe<ValueType, LockableType>::unsafe() noexcept
 	{
   	return m_value;
+	}
+  template<typename ValueType, typename LockableType>
+	const typename Safe<ValueType, LockableType>::RemoveRefLockableType& Safe<ValueType, LockableType>::lockable() const noexcept
+  // typename ConstReferenceType Safe<ValueType, LockableType>::unsafe() const noexcept
+	{
+  	return m_lockable.lockable;
+	}
+  template<typename ValueType, typename LockableType>
+  typename Safe<ValueType, LockableType>::RemoveRefLockableType& Safe<ValueType, LockableType>::lockable() noexcept
+	{
+  	return m_lockable.lockable;
 	}
 }  // namespace safe
 

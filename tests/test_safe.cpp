@@ -45,9 +45,9 @@ public:
 	using SafeLockableValueRefType = safe::Safe<int&, DummyLockable>;
 	using SafeLockableValueType = safe::Safe<int, DummyLockable>;
 
-	using SafeLockableRefValueRefConstAccessType = SafeLockableRefValueRefType::ConstAccess<DummyLock>;
+	using SafeLockableRefValueRefSharedAccessType = SafeLockableRefValueRefType::SharedAccess<DummyLock>;
 	using SafeLockableRefValueRefAccessType = SafeLockableRefValueRefType::Access<DummyLock>;
-	using SafeLockableValueConstAccessType = SafeLockableValueType::ConstAccess<DummyLock>;
+	using SafeLockableValueSharedAccessType = SafeLockableValueType::SharedAccess<DummyLock>;
 	using SafeLockableValueAccessType = SafeLockableValueType::Access<DummyLock>;
 
 	SafeTest():
@@ -135,28 +135,28 @@ TEST_F(SafeTest, DefaultLockableValueConstructor) {
 TEST_F(SafeTest, DefaultLockableDefaultValueConstructor) {
 	SafeLockableValueType safe;
 }
-TEST_F(AccessTest, SafeLockableRefValueRefConstAccess) {
+TEST_F(AccessTest, SafeLockableRefValueRefSharedAccess) {
 	SafeLockableRefValueRefType safe(lockable, value);
 	
-	SafeLockableRefValueRefConstAccessType access(safe);
+	SafeLockableRefValueRefSharedAccessType access(safe);
 	
 	EXPECT_EQ(&*access, &value);
-	EXPECT_EQ(&*static_cast<const SafeLockableRefValueRefConstAccessType&>(access), &value);
+	EXPECT_EQ(&*static_cast<const SafeLockableRefValueRefSharedAccessType&>(access), &value);
 	EXPECT_EQ(access.operator->(), &value);
-	EXPECT_EQ(static_cast<const SafeLockableRefValueRefConstAccessType&>(access).operator->(), &value);
+	EXPECT_EQ(static_cast<const SafeLockableRefValueRefSharedAccessType&>(access).operator->(), &value);
 	EXPECT_EQ(&access.lock.lockable, &lockable);
-	EXPECT_EQ(&static_cast<const SafeLockableRefValueRefConstAccessType&>(access).lock.lockable, &lockable);
+	EXPECT_EQ(&static_cast<const SafeLockableRefValueRefSharedAccessType&>(access).lock.lockable, &lockable);
 
 }
-TEST_F(SafeTest, SafeLockableValueConstAccess) {
+TEST_F(SafeTest, SafeLockableValueSharedAccess) {
 	SafeLockableValueType safe(safe::default_construct_lockable, value);
 	
-	SafeLockableValueConstAccessType access(safe);
+	SafeLockableValueSharedAccessType access(safe);
 	
 	EXPECT_EQ(&*access, &safe.unsafe());
-	EXPECT_EQ(&*static_cast<const SafeLockableValueConstAccessType&>(access), &safe.unsafe());
+	EXPECT_EQ(&*static_cast<const SafeLockableValueSharedAccessType&>(access), &safe.unsafe());
 	EXPECT_EQ(access.operator->(), &safe.unsafe());
-	EXPECT_EQ(static_cast<const SafeLockableValueConstAccessType&>(access).operator->(), &safe.unsafe());
+	EXPECT_EQ(static_cast<const SafeLockableValueSharedAccessType&>(access).operator->(), &safe.unsafe());
 }
 TEST_F(SafeTest, SafeLockableRefValueRefAccess) {
 	SafeLockableRefValueRefType safe(lockable, value);
@@ -187,22 +187,22 @@ TEST_F(AccessTest, ReturnTypes) {
 	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock>::ConstReferenceType, const int&>::value, "");
 	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock>::ReferenceType, int&>::value, "");
 
-	static_assert(std::is_same<SafeLockableRefValueRefType::ConstAccess<DummyLock>::ConstPointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableRefValueRefType::ConstAccess<DummyLock>::PointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableRefValueRefType::ConstAccess<DummyLock>::ConstReferenceType, const int&>::value, "");
-	static_assert(std::is_same<SafeLockableRefValueRefType::ConstAccess<DummyLock>::ReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::SharedAccess<DummyLock>::ConstPointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::SharedAccess<DummyLock>::PointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::SharedAccess<DummyLock>::ConstReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::SharedAccess<DummyLock>::ReferenceType, const int&>::value, "");
 
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::ConstPointerType, const int*>::value, "");
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::PointerType, int*>::value, "");
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::ConstReferenceType, const int&>::value, "");
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::ReferenceType, int&>::value, "");
 
-	static_assert(std::is_same<SafeLockableValueType::ConstAccess<DummyLock>::ConstPointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableValueType::ConstAccess<DummyLock>::PointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableValueType::ConstAccess<DummyLock>::ConstReferenceType, const int&>::value, "");
-	static_assert(std::is_same<SafeLockableValueType::ConstAccess<DummyLock>::ReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::SharedAccess<DummyLock>::ConstPointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::SharedAccess<DummyLock>::PointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::SharedAccess<DummyLock>::ConstReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::SharedAccess<DummyLock>::ReferenceType, const int&>::value, "");
 }
-TEST_F(AccessTest, StdUniqueLockConstAccessToGuardLockConstAccess) {
+TEST_F(AccessTest, StdUniqueLockSharedAccessToGuardLockSharedAccess) {
 	SafeLockableRefValueRefType safe(lockable, value);
 	
 	{
@@ -214,15 +214,15 @@ TEST_F(AccessTest, StdUniqueLockConstAccessToGuardLockConstAccess) {
 	}
 
 	{
-		safe::StdUniqueLockConstAccess<SafeLockableRefValueRefType> uniqueLockAccess(safe);
+		safe::StdUniqueLockSharedAccess<SafeLockableRefValueRefType> uniqueLockAccess(safe);
 		{
 			lockable.touch();
-			safe::StdLockGuardConstAccess<SafeLockableRefValueRefType> lockGuardAccess(uniqueLockAccess);
+			safe::StdLockGuardSharedAccess<SafeLockableRefValueRefType> lockGuardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
 		}
 		lockable.touch();
 	}
 }
-TEST_F(AccessTest, StdUniqueLockAccessToGuardLockConstAccess) {
+TEST_F(AccessTest, StdUniqueLockAccessToGuardLockSharedAccess) {
 	SafeLockableRefValueRefType safe(lockable, value);
 	
 	{
@@ -237,7 +237,7 @@ TEST_F(AccessTest, StdUniqueLockAccessToGuardLockConstAccess) {
 		safe::StdUniqueLockAccess<SafeLockableRefValueRefType> uniqueLockAccess(safe);
 		{
 			lockable.touch();
-			safe::StdLockGuardConstAccess<SafeLockableRefValueRefType> lockGuardAccess(uniqueLockAccess);
+			safe::StdLockGuardSharedAccess<SafeLockableRefValueRefType> lockGuardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
 		}
 		lockable.touch();
 	}
@@ -257,7 +257,7 @@ TEST_F(AccessTest, StdUniqueLockAccessToGuardLockAccess) {
 		safe::StdUniqueLockAccess<SafeLockableRefValueRefType> uniqueLockAccess(safe);
 		{
 			lockable.touch();
-			safe::StdLockGuardAccess<SafeLockableRefValueRefType> lockGuardAccess(uniqueLockAccess);
+			safe::StdLockGuardAccess<SafeLockableRefValueRefType> lockGuardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
 		}
 		lockable.touch();
 	}
