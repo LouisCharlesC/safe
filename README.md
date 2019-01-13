@@ -1,7 +1,7 @@
 # safe
 ## Overview
-safe is a tiny library that helps you get you multi-threaded code right and understandable. It providesthe Safe class, a wrapper around a value object and the lockable object (typically a std::mutex) that protects the value for multi-threaded access. When you use safe, you clearly express:
-* that the stored value needs to be protected, and which lockable object protects it,
+safe is a tiny library that helps you get you multi-threaded code right and understandable. It defines the Safe class, a wrapper around a value object and the lockable object (typically a std::mutex) that protects the value for multi-threaded access. When you use safe, you clearly express:
+* that the stored value needs to be protected, and which lockable object protects it.
 * whether you access the value in a protected way (locking the mutex) or not: the Access classes give protected access, the unsafe() functions give unprotected access.
 
 Here is why you want to use safe:
@@ -61,7 +61,7 @@ safe::Safe<int, std::mutex> lockableDefault(safe::default_construct_lockable, 42
 ### 3. Choose the locking behavior that suits each access.
 The Safe class defines the lockable type, and the Access class defines the lock type. This lets you choose the right locking behavior every time you spawn an Access object from a Safe object.
 
-## safe's interface
+## Safe's interface
 ### The Safe class
 The Safe class does a few useful things for you, it:
 1. hides the value object.
