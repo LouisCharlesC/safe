@@ -73,10 +73,10 @@ The Safe class does a few useful things for you, it:
 Through the Access classes you specify the Lock object you want to use, access the Value object using pointer semantics (* and ->) and define whether you want this access to be const or read-write.
 ### The helper aliases
 The helper aliases are the way to declare Access objects suitable for a Safe object. The Safe class defines Access and SharedAccess which are templated on the Lock type. Four other aliases exist in the safe namespace for c++11's locks:
-StdLockGuardSharedAccess: std::lock_guard Lock with const access to the Value object.
-StdUniqueLockSharedAccess: std::unique_lock Lock with const access to the Value object.
-StdLockGuardAccess: std::lock_guard Lock with read-write access to the Value object.
-StdUniqueLockAccess: std::unique_lock Lock with read-write access to the Value object.
+* StdLockGuardSharedAccess: std::lock_guard Lock with const access to the Value object.
+* StdUniqueLockSharedAccess: std::unique_lock Lock with const access to the Value object.
+* StdLockGuardAccess: std::lock_guard Lock with read-write access to the Value object.
+* StdUniqueLockAccess: std::unique_lock Lock with read-write access to the Value object.
 Add any other alias you need within the safe namespace for a uniform way to define you Access objects!
 
 ## Interesting use cases
