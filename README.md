@@ -31,13 +31,11 @@ SafeVectorInt safeIndexes(frontEndMutex, indexesToProcess); // <-- value-mutex a
 }
 safeIndexes.unsafe().pop_back(); // <-- unprotected access: clearly expressed!
 ```
-
 ## Vocabulary
 * Value object: whatever needs to be protected by a lockable object.
 * Lockable object: an object that exhibits the Lockable interface: lock, try_lock and unlock.
 * Lock object: an object that manages a lockable object. Examples are std::lock_guard and std::unique_lock.
 * Locking behavior: the combination of the lockable object and the lock object. I see two axes of locking behavior: lock_guard vs unique_lock, and shared vs exclusive access. To achieve shared locking, you need both a shared lockable (e.g. c++17's std::shared_mutex) and a shared lock (e.g. c++14's shared_unique_lock and boost's shared_lock_guard). In that case, it is preferable to use a SharedAccess object, because it exhibits a const interface suitable for shared access.
-
 ## Main features:
 ### 1. Store the value object/lockable object inside the Safe object, or refer to existing objects
 You can use any combination of reference and non-reference types for your Safe objects:
@@ -60,7 +58,6 @@ safe::Safe<int, std::mutex> lockableDefault(safe::default_construct_lockable, 42
 ```
 ### 3. Choose the locking behavior that suits each access.
 The Safe class defines the lockable type, and the Access class defines the lock type. This lets you choose the right locking behavior every time you spawn an Access object from a Safe object.
-
 ## Safe's interface
 ### The Safe class
 The Safe class does a few useful things for you, it:
@@ -77,8 +74,8 @@ The helper aliases are the way to declare Access objects suitable for a Safe obj
 * StdUniqueLockSharedAccess: std::unique_lock Lock with const access to the Value object.
 * StdLockGuardAccess: std::lock_guard Lock with read-write access to the Value object.
 * StdUniqueLockAccess: std::unique_lock Lock with read-write access to the Value object.
-Add any other alias you need within the safe namespace for a uniform way to define you Access objects!
 
+Add any other alias you need within the safe namespace for a uniform way to define you Access objects!
 ## Interesting use cases
 ### std::unique_lock to std::lock_guard
 You can start by defining an Access parameterized with std::unique_lock, and later transfer the lockable's ownership to a std::lock_guard Access. The syntax is a little tricky, so here it is:
