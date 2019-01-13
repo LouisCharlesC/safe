@@ -63,38 +63,60 @@ class UseCasesTest: public SafeTest {};
 
 void readmeWithoutSafeExample()
 {
-	std::mutex wrong_mutex;
-	std::mutex right_mutex;
-	std::vector<int> vec;
-	{
-		std::lock_guard<std::mutex> lock(wrong_mutex); // <-- wrong mutex, but how could you tell ?
-		vec.push_back(42);
-	}
-	vec.pop_back(); // <-- unprotected access, is this intended ?
+std::mutex frontEndMutex;
+std::mutex backEndMutex;
+std::vector<int> indexesToProcess; // <-- do I need to lock a mutex to safely access this variable ?
+{
+	std::lock_guard<std::mutex> lock(frontEndMutex); // <-- is this the right mutex ?
+	indexesToProcess.push_back(42);
+}
+indexesToProcess.pop_back(); // <-- unprotected access, is this intended ?
 }
 
 void readmeWithSafeExample()
 {
-	// Convenience typedef
-	using SafeVectorInt = safe::Safe<std::vector<int>, std::mutex&>;
+// Convenience typedef
+using SafeVectorInt = safe::Safe<std::vector<int>&, std::mutex&>;
 
-	std::mutex wrong_mutex;
-	std::mutex right_mutex;
-	SafeVectorInt safeVec(right_mutex); // <-- value+mutex association!
-	{
-		safe::StdLockGuardAccess<SafeVectorInt> vec(safeVec); // <-- right mutex: guaranteed!
-		vec->push_back(42); // access the vector using pointer semantics: * and ->
-	}
-	safeVec.unsafe().pop_back(); // <-- unprotected access: clearly expressed!
+std::mutex frontEndMutex;
+std::mutex backEndMutex;
+std::vector<int> indexesToProcess;
+SafeVectorInt safeIndexes(frontEndMutex, indexesToProcess); // <-- value-mutex association!
+{
+	safe::StdLockGuardAccess<SafeVectorInt> indexesToProcess(safeIndexes); // <-- right mutex: guaranteed!
+	indexesToProcess->push_back(42); // access the vector using pointer semantics: * and ->
+}
+safeIndexes.unsafe().pop_back(); // <-- unprotected access: clearly expressed!
+}
+
+void readmeTag()
+{
+std::mutex aMutex;
+
+safe::Safe<int, std::mutex> bothDefault; // value and lockable are default constructed, ok
+safe::Safe<int, std::mutex&> noDefault(aMutex, 42); // value and lockable initialized, ok
+safe::Safe<int, std::mutex&> valueDefault(aMutex); // value is default constructed, and lockable is initialized, ok
+safe::Safe<int, std::mutex> lockableDefault(safe::default_construct_lockable, 42); // value is initialized to 42, and mutex is default constructed: need the safe::default_construct_lockable tag!
+}
+
+void readmeUniqueLockToLockGuard()
+{
+safe::Safe<int> safeValue;
+
+safe::StdUniqueLockAccess<safe::Safe<int>> uniqueLockAccess(safeValue);
+safe::StdLockGuardAccess<safe::Safe<int>> lockGuardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
 }
 
 void readmeUniqueLockAccessIntoConditionVariableExample()
 {
-	safe::Safe<int> safe;
-	safe::StdUniqueLockAccess<safe::Safe<int>> access(safe);
-	std::condition_variable cv;
-	cv.wait(access.lock);
+std::condition_variable cv;
+safe::Safe<int> safeValue;
+
+safe::StdUniqueLockAccess<safe::Safe<int>> access(safeValue);
+cv.wait(access.lock);
 }
+
+
 
 TEST_F(SafeTest, LockableRefValueRefConstructor) {
 	SafeLockableRefValueRefType safe(lockable, value);
