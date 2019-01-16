@@ -38,7 +38,7 @@ safeIndexes.unsafe().pop_back(); // <-- unprotected access: clearly expressed!
 * Safe class: wraps a value object and a lockable object.
 * Lock object: an object that manages a lockable object. Examples are std::lock_guard and std::unique_lock.
 * Access class: manages a lockable object and gives access to the value object.
-* Locking behavior: the combination of the lockable object and the lock object define the locking behavior. I see two axes of locking behavior: lock_guard vs unique_lock, and shared vs exclusive access. To achieve shared locking, you need both a shared lockable (e.g. c++17's std::shared_mutex) and a shared lock (e.g. c++14's shared_unique_lock and boost's shared_lock_guard). The SharedAccess alias complements these classes by only providing const access to the value.
+* Locking behavior: the combination of the lockable object and the lock object define the locking behavior. In safe, there are two axes of locking behavior: lock_guard vs unique_lock, and shared vs exclusive access. To achieve shared locking, you need both a shared lockable (e.g. c++17's std::shared_mutex) and a shared lock (e.g. c++14's shared_unique_lock and boost's shared_lock_guard). The SharedAccess alias complements these classes by only providing const access to the value.
 ## Main features:
 ### 1. Store the value object/lockable object inside the Safe object, or refer to existing objects
 You can use any combination of reference and non-reference types for your Safe objects:
