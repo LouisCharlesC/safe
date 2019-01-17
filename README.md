@@ -34,7 +34,11 @@ safe::Safe<int> safeCount; // <-- value and mutex packaged together!
 * Access object: locks the lockable object and gives access to the value object.
 * Locking behavior: the combination of the lockable object and the lock object define the locking behavior. In safe, there are two axes of locking behavior: lock_guard vs unique_lock, and shared vs exclusive access. To achieve shared locking, you need both a shared lockable (e.g. c++17's std::shared_mutex) and a shared lock (e.g. c++14's shared_unique_lock and boost's shared_lock_guard). The read-only Access class complements these by only providing const access to the value.
 ## Main features:
-### 1. Store the value object/lockable object inside the Safe object, or refer to existing objects
+### 1. Choose any lockable and lock classes that fit your needs!
+The Safe class is templated on the lockable object: use std::mutex, std::shared_mutex (c++17), or you own tubo lock-free mutex!
+
+The Access class is templated on the lock object: use std::lock_guard, boost::shared_lock_guard, or you own low-entropy double-turn lock!
+### 2. Store the value object/lockable object inside the Safe object, or refer to existing objects
 You can use any combination of reference and non-reference types for your Safe objects:
 ```c++
 safe::Safe<int, std::mutex>;
@@ -43,7 +47,7 @@ safe::Safe<int&, std::mutex>;
 safe::Safe<int, std::mutex&>;
 safe::Safe<int&, std::mutex&>;
 ```
-### 2. Flexibly construct the Value and Lock objects.
+### 3. Flexibly construct the Value and Lock objects.
 *Note: when the lockable object is default constructed, but the value object is not, you must pass the safe::default_construct_lockable tag.* Example:
 ```c++
 std::mutex aMutex;
@@ -53,7 +57,7 @@ safe::Safe<int, std::mutex&> noDefault(aMutex, 42); // value and lockable initia
 safe::Safe<int, std::mutex&> valueDefault(aMutex); // value is default constructed, and lockable is initialized, ok
 safe::Safe<int, std::mutex> lockableDefault(safe::default_construct_lockable, 42); // value is initialized to 42, and mutex is default constructed: need the safe::default_construct_lockable tag!
 ```
-### 3. Choose the locking behavior that suits each access.
+### 4. Choose the locking behavior that suits each access.
 The Safe class defines the lockable type, and the Access class defines the lock type. This lets you choose the right locking behavior every time you spawn an Access object from a Safe object.
 ## Safe's interface
 ### The Safe class
