@@ -13,6 +13,12 @@
 
 namespace safe
 {
+	enum ReadOrWrite
+	{
+		ReadOnly,
+		ReadWrite
+	};
+
 	struct default_construct_lockable_t {};
 	static constexpr default_construct_lockable_t default_construct_lockable;
 	
@@ -67,7 +73,7 @@ namespace safe
 			/// Reference to a Lockable object.
 			ReferenceLockableType& lockable;
 		};
-		
+
 		/**
 		 * @brief Manages a lockable object and gives access to the value
 		 * from a Safe object.
@@ -82,12 +88,12 @@ namespace safe
 		 * lockable object.
 		 * @tparam Shared Whether the access should be const.
 		 */
-		template<typename LockType, bool Shared>
+		template<typename LockType, ReadOrWrite AccessType>
 		class AccessImpl
 		{
 		private:
 			/// ValueType with const qualifier if template parameter Shared is true.
-			using ConditionallyConstValueType = typename std::conditional<Shared, const RemoveRefValueType, RemoveRefValueType>::type;
+			using ConditionallyConstValueType = typename std::conditional<AccessType==ReadOnly, const RemoveRefValueType, RemoveRefValueType>::type;
 
 		public:
 			/// Pointer-to-const ValueType
@@ -181,12 +187,9 @@ namespace safe
 		/// Reference to ValueType.
 		using ReferenceType = RemoveRefValueType&;
 
-		/// Template type alias to an AccessImpl with const access
-		template<template<typename> class LockType>
-		using SharedAccess = AccessImpl<LockType<RemoveRefLockableType>, true>;
 		/// Template type alias to an AccessImpl with non-const access
-		template<template<typename> class LockType>
-		using Access = AccessImpl<LockType<RemoveRefLockableType>, false>;
+		template<template<typename> class LockType, ReadOrWrite AccessType=ReadWrite>
+		using Access = AccessImpl<LockType<RemoveRefLockableType>, AccessType>;
 		
 		/**
 		 * @brief Construct a Safe object
@@ -202,7 +205,7 @@ namespace safe
 		 * @param valueArgs Perfect forwarding arguments to construct the ValueType object.
 		 */
 		template<typename... ValueArgs>
-		Safe(default_construct_lockable_t tag, ValueArgs&&... valueArgs);
+		Safe(default_construct_lockable_t, ValueArgs&&... valueArgs);
 		/**
 		 * @brief Construct a Safe object, perfect forwarding the first
 		 * argument to construct the LockableType object and perfect forwarding
@@ -252,18 +255,12 @@ namespace safe
 		ValueType m_value;
 	};
 
-	/// SharedAccess with std::lock_guard behavior
-	template<typename SafeType>
-	using StdLockGuardSharedAccess = typename SafeType::template SharedAccess<std::lock_guard>;
-	/// SharedAccess with std::unique_lock behavior
-	template<typename SafeType>
-	using StdUniqueLockSharedAccess = typename SafeType::template SharedAccess<std::unique_lock>;
 	/// Access with std::lock_guard behavior
-	template<typename SafeType>
-	using StdLockGuardAccess = typename SafeType::template Access<std::lock_guard>;
+	template<typename SafeType, ReadOrWrite AccessType=ReadWrite>
+	using LockGuard = typename SafeType::template Access<std::lock_guard, AccessType>;
 	/// Access with std::unique_lock behavior
-	template<typename SafeType>
-	using StdUniqueLockAccess = typename SafeType::template Access<std::unique_lock>;
+	template<typename SafeType, ReadOrWrite AccessType=ReadWrite>
+	using UniqueLock = typename SafeType::template Access<std::unique_lock, AccessType>;
 }  // namespace safe
 
 #endif /* SAFE_H_ */

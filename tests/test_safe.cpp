@@ -45,9 +45,9 @@ public:
 	using SafeLockableValueRefType = safe::Safe<int&, DummyLockable>;
 	using SafeLockableValueType = safe::Safe<int, DummyLockable>;
 
-	using SafeLockableRefValueRefSharedAccessType = SafeLockableRefValueRefType::SharedAccess<DummyLock>;
+	using SafeLockableRefValueRefSharedAccessType = SafeLockableRefValueRefType::Access<DummyLock, safe::ReadOnly>;
 	using SafeLockableRefValueRefAccessType = SafeLockableRefValueRefType::Access<DummyLock>;
-	using SafeLockableValueSharedAccessType = SafeLockableValueType::SharedAccess<DummyLock>;
+	using SafeLockableValueSharedAccessType = SafeLockableValueType::Access<DummyLock, safe::ReadOnly>;
 	using SafeLockableValueAccessType = SafeLockableValueType::Access<DummyLock>;
 
 	SafeTest():
@@ -65,28 +65,23 @@ void readmeWithoutSafeExample()
 {
 std::mutex frontEndMutex;
 std::mutex backEndMutex;
-std::vector<int> indexesToProcess; // <-- do I need to lock a mutex to safely access this variable ?
+int count; // <-- do I need to lock a mutex to safely access this variable ?
 {
 	std::lock_guard<std::mutex> lock(frontEndMutex); // <-- is this the right mutex ?
-	indexesToProcess.push_back(42);
+	++count;
 }
-indexesToProcess.pop_back(); // <-- unprotected access, is this intended ?
+--count; // <-- unprotected access, is this intended ?
 }
 
 void readmeWithSafeExample()
 {
-// Convenience typedef
-using SafeVectorInt = safe::Safe<std::vector<int>&, std::mutex&>;
-
 std::mutex frontEndMutex;
-std::mutex backEndMutex;
-std::vector<int> indexesToProcess;
-SafeVectorInt safeIndexes(frontEndMutex, indexesToProcess); // <-- value-mutex association!
+safe::Safe<int> safeCount; // <-- value and mutex packaged together!
 {
-	safe::StdLockGuardAccess<SafeVectorInt> indexesToProcess(safeIndexes); // <-- right mutex: guaranteed!
-	indexesToProcess->push_back(42); // access the vector using pointer semantics: * and ->
+	safe::LockGuard<safe::Safe<int>> count(safeCount); // <-- right mutex: guaranteed!
+	++*count; // access the vector using pointer semantics: * and ->
 }
-safeIndexes.unsafe().pop_back(); // <-- unprotected access: clearly expressed!
+--safeCount.unsafe(); // <-- unprotected access: clearly expressed!
 }
 
 void readmeTag()
@@ -103,8 +98,8 @@ void readmeUniqueLockToLockGuard()
 {
 safe::Safe<int> safeValue;
 
-safe::StdUniqueLockAccess<safe::Safe<int>> uniqueLockAccess(safeValue);
-safe::StdLockGuardAccess<safe::Safe<int>> lockGuardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
+safe::UniqueLock<safe::Safe<int>> uniqueLockAccess(safeValue);
+safe::LockGuard<safe::Safe<int>> lockGuardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
 }
 
 void readmeUniqueLockAccessIntoConditionVariableExample()
@@ -112,11 +107,34 @@ void readmeUniqueLockAccessIntoConditionVariableExample()
 std::condition_variable cv;
 safe::Safe<int> safeValue;
 
-safe::StdUniqueLockAccess<safe::Safe<int>> access(safeValue);
+safe::UniqueLock<safe::Safe<int>> access(safeValue);
 cv.wait(access.lock);
 }
 
+void readmeReturnStdLockGuard()
+{
+class MultithreadCount
+{
+public:
+	void increment()
+ 	{
+  		++*safe::LockGuard<safe::Safe<int>>(m_safeCount);
+	}
 
+	safe::LockGuard<safe::Safe<int>> get()
+ 	{
+  		return {m_safeCount};
+	}
+
+private:
+	safe::Safe<int> m_safeCount;
+};
+
+MultithreadCount safeNbrOfLinesOfCode;
+{
+	auto&& nbrOfLinesOfCode = safeNbrOfLinesOfCode.get();
+}
+}
 
 TEST_F(SafeTest, LockableRefValueRefConstructor) {
 	SafeLockableRefValueRefType safe(lockable, value);
@@ -209,20 +227,20 @@ TEST_F(AccessTest, ReturnTypes) {
 	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock>::ConstReferenceType, const int&>::value, "");
 	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock>::ReferenceType, int&>::value, "");
 
-	static_assert(std::is_same<SafeLockableRefValueRefType::SharedAccess<DummyLock>::ConstPointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableRefValueRefType::SharedAccess<DummyLock>::PointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableRefValueRefType::SharedAccess<DummyLock>::ConstReferenceType, const int&>::value, "");
-	static_assert(std::is_same<SafeLockableRefValueRefType::SharedAccess<DummyLock>::ReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::ReadOnly>::ConstPointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::ReadOnly>::PointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::ReadOnly>::ConstReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::ReadOnly>::ReferenceType, const int&>::value, "");
 
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::ConstPointerType, const int*>::value, "");
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::PointerType, int*>::value, "");
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::ConstReferenceType, const int&>::value, "");
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::ReferenceType, int&>::value, "");
 
-	static_assert(std::is_same<SafeLockableValueType::SharedAccess<DummyLock>::ConstPointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableValueType::SharedAccess<DummyLock>::PointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableValueType::SharedAccess<DummyLock>::ConstReferenceType, const int&>::value, "");
-	static_assert(std::is_same<SafeLockableValueType::SharedAccess<DummyLock>::ReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::ReadOnly>::ConstPointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::ReadOnly>::PointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::ReadOnly>::ConstReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::ReadOnly>::ReferenceType, const int&>::value, "");
 }
 TEST_F(AccessTest, StdUniqueLockSharedAccessToGuardLockSharedAccess) {
 	SafeLockableRefValueRefType safe(lockable, value);
@@ -236,10 +254,10 @@ TEST_F(AccessTest, StdUniqueLockSharedAccessToGuardLockSharedAccess) {
 	}
 
 	{
-		safe::StdUniqueLockSharedAccess<SafeLockableRefValueRefType> uniqueLockAccess(safe);
+		safe::UniqueLock<SafeLockableRefValueRefType, safe::ReadOnly> uniqueLockAccess(safe);
 		{
 			lockable.touch();
-			safe::StdLockGuardSharedAccess<SafeLockableRefValueRefType> lockGuardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
+			safe::LockGuard<SafeLockableRefValueRefType, safe::ReadOnly> lockGuardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
 		}
 		lockable.touch();
 	}
@@ -256,10 +274,10 @@ TEST_F(AccessTest, StdUniqueLockAccessToGuardLockSharedAccess) {
 	}
 
 	{
-		safe::StdUniqueLockAccess<SafeLockableRefValueRefType> uniqueLockAccess(safe);
+		safe::UniqueLock<SafeLockableRefValueRefType> uniqueLockAccess(safe);
 		{
 			lockable.touch();
-			safe::StdLockGuardSharedAccess<SafeLockableRefValueRefType> lockGuardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
+			safe::LockGuard<SafeLockableRefValueRefType, safe::ReadOnly> lockGuardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
 		}
 		lockable.touch();
 	}
@@ -276,10 +294,10 @@ TEST_F(AccessTest, StdUniqueLockAccessToGuardLockAccess) {
 	}
 
 	{
-		safe::StdUniqueLockAccess<SafeLockableRefValueRefType> uniqueLockAccess(safe);
+		safe::UniqueLock<SafeLockableRefValueRefType> uniqueLockAccess(safe);
 		{
 			lockable.touch();
-			safe::StdLockGuardAccess<SafeLockableRefValueRefType> lockGuardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
+			safe::LockGuard<SafeLockableRefValueRefType> lockGuardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
 		}
 		lockable.touch();
 	}

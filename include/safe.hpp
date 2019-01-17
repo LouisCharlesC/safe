@@ -16,45 +16,45 @@ namespace safe
 	 * Lock
 	 */
 	template<typename ValueType, typename LockableType>
-	template<typename LockType, bool Shared>
-	Safe<ValueType, LockableType>::AccessImpl<LockType, Shared>::AccessImpl(const Safe<ValueType, LockableType>& safe) noexcept:
+	template<typename LockType, ReadOrWrite AccessType>
+	Safe<ValueType, LockableType>::AccessImpl<LockType, AccessType>::AccessImpl(const Safe<ValueType, LockableType>& safe) noexcept:
 		lock(safe.m_lockable.lockable),
 		m_value(safe.m_value)
 	{}
 	template<typename ValueType, typename LockableType>
-	template<typename LockType, bool Shared>
-	Safe<ValueType, LockableType>::AccessImpl<LockType, Shared>::AccessImpl(Safe<ValueType, LockableType>& safe) noexcept:
+	template<typename LockType, ReadOrWrite AccessType>
+	Safe<ValueType, LockableType>::AccessImpl<LockType, AccessType>::AccessImpl(Safe<ValueType, LockableType>& safe) noexcept:
 		lock(safe.m_lockable.lockable),
 		m_value(safe.m_value)
 	{}
 	template<typename ValueType, typename LockableType>
-	template<typename LockType, bool Shared>
+	template<typename LockType, ReadOrWrite AccessType>
 	template<typename... LockArgs>
-	Safe<ValueType, LockableType>::AccessImpl<LockType, Shared>::AccessImpl(ReferenceType value, LockArgs&&... lockArgs):
+	Safe<ValueType, LockableType>::AccessImpl<LockType, AccessType>::AccessImpl(ReferenceType value, LockArgs&&... lockArgs):
 		lock(std::forward<LockArgs>(lockArgs)...),
 		m_value(value)
 	{}
 	template<typename ValueType, typename LockableType>
-	template<typename LockType, bool Shared>
-	typename Safe<ValueType, LockableType>::template AccessImpl<LockType, Shared>::ConstPointerType Safe<ValueType, LockableType>::AccessImpl<LockType, Shared>::operator->() const noexcept
+	template<typename LockType, ReadOrWrite AccessType>
+	typename Safe<ValueType, LockableType>::template AccessImpl<LockType, AccessType>::ConstPointerType Safe<ValueType, LockableType>::AccessImpl<LockType, AccessType>::operator->() const noexcept
 	{
 		return &m_value;
 	}
 	template<typename ValueType, typename LockableType>
-	template<typename LockType, bool Shared>
-	typename Safe<ValueType, LockableType>::template AccessImpl<LockType, Shared>::PointerType Safe<ValueType, LockableType>::AccessImpl<LockType, Shared>::operator->() noexcept
+	template<typename LockType, ReadOrWrite AccessType>
+	typename Safe<ValueType, LockableType>::template AccessImpl<LockType, AccessType>::PointerType Safe<ValueType, LockableType>::AccessImpl<LockType, AccessType>::operator->() noexcept
 	{
 		return &m_value;
 	}
 	template<typename ValueType, typename LockableType>
-	template<typename LockType, bool Shared>
-	typename Safe<ValueType, LockableType>::template AccessImpl<LockType, Shared>::ConstReferenceType Safe<ValueType, LockableType>::AccessImpl<LockType, Shared>::operator*() const noexcept
+	template<typename LockType, ReadOrWrite AccessType>
+	typename Safe<ValueType, LockableType>::template AccessImpl<LockType, AccessType>::ConstReferenceType Safe<ValueType, LockableType>::AccessImpl<LockType, AccessType>::operator*() const noexcept
 	{
 		return m_value;
 	}
 	template<typename ValueType, typename LockableType>
-	template<typename LockType, bool Shared>
-	typename Safe<ValueType, LockableType>::template AccessImpl<LockType, Shared>::ReferenceType Safe<ValueType, LockableType>::AccessImpl<LockType, Shared>::operator*() noexcept
+	template<typename LockType, ReadOrWrite AccessType>
+	typename Safe<ValueType, LockableType>::template AccessImpl<LockType, AccessType>::ReferenceType Safe<ValueType, LockableType>::AccessImpl<LockType, AccessType>::operator*() noexcept
 	{
 		return m_value;
 	}
