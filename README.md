@@ -1,4 +1,4 @@
-# safe: make multi-thread code safe and cristal-clear!
+# safe: make multi-thread code safe and crystal-clear!
 ## Overview
 safe is a tiny library that helps you get your multi-threaded code right and understandable. It defines the Safe and Access classes. A Safe object combines a lockable object (e.g. std::mutex) and a value object (whatever you need to protect with the lockable object). You cannot directly access the value through the Safe object.
 C++11 introducing RAII for mutexes with the std::lock_guard and std::unique_lock classes. In the RAII idiom, the state of the lockable object is tied to the lifetime of a lock object. Safe pushes this of step further with Access objects by also tying the possibility to access the value object to the lock's lifetime.
