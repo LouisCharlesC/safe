@@ -1,7 +1,8 @@
 # Make your multi-thread code *safe* and crystal clear!
 ## Overview
-safe is a tiny library that helps you get your multi-threaded code right and understandable. It defines the Safe and Access classes. A Safe object combines a lockable object (e.g. std::mutex) and a value object (whatever you need to protect with the lockable object). You cannot directly access the value through the Safe object.
-C++11 introducing RAII for mutexes with the std::lock_guard and std::unique_lock classes. In the RAII idiom, the state of the lockable object is tied to the lifetime of a lock object. Safe pushes this of step further with Access objects by also tying the possibility to access the value object to the lock's lifetime.
+safe is a tiny library that helps you get your multi-threaded code right and understandable. It defines the Safe and Access classes. A Safe object combines a lockable object (e.g. std::mutex) and a value object (whatever you need to protect with the lockable object). You cannot directly access the value through the Safe object, you need the Access class to do so.
+
+C++11 introduced RAII for mutexes with the std::lock_guard and std::unique_lock classes. In the RAII idiom, the state of the lockable object is tied to the lifetime of a lock object. Safe pushes this one step further with Access objects by also tying the possibility to access the value object to the lock's lifetime.
 
 Here is why you want to use safe:
 ### Without safe
@@ -34,10 +35,10 @@ safe::Safe<int> safeCount; // <-- value and mutex packaged together!
 * Access object: locks the lockable object and gives access to the value object.
 * Locking behavior: the combination of the lockable object and the lock object define the locking behavior. In safe, there are two axes of locking behavior: lock_guard vs unique_lock, and shared vs exclusive access. To achieve shared locking, you need both a shared lockable (e.g. c++17's std::shared_mutex) and a shared lock (e.g. c++14's shared_unique_lock and boost's shared_lock_guard). The read-only Access class complements these by only providing const access to the value.
 ## Main features:
-### 1. Choose any lockable and lock classes that fit your needs!
-The Safe class is templated on the lockable object: use std::mutex, std::shared_mutex (c++17), or you own tubo lock-free mutex!
+### 1. Choose any lockable and lock that fit your needs!
+The Safe class is templated on the lockable object: use std::mutex, std::shared_mutex (c++17), name it!
 
-The Access class is templated on the lock object: use std::lock_guard, boost::shared_lock_guard, or you own low-entropy double-turn lock!
+The Access class is templated on the lock object: use std::lock_guard, boost::shared_lock_guard, anything you want!
 ### 2. Store the value object/lockable object inside the Safe object, or refer to existing objects
 You can use any combination of reference and non-reference types for your Safe objects:
 ```c++
@@ -58,7 +59,7 @@ safe::Safe<int, std::mutex&> valueDefault(aMutex); // value is default construct
 safe::Safe<int, std::mutex> lockableDefault(safe::default_construct_lockable, 42); // value is initialized to 42, and mutex is default constructed: need the safe::default_construct_lockable tag!
 ```
 ### 4. Choose the locking behavior that suits each access.
-The Safe class defines the lockable type, and the Access class defines the lock type. This lets you choose the right locking behavior every time you spawn an Access object from a Safe object.
+One you construct a Safe object, you fix the type of the lockable object you will use. From there, you will create an Access object every time you want to access your value. For each if these accesses, you can choose the appropriate lock, and whether the access is read-write or read only.
 ## Safe's interface
 ### The Safe class
 The Safe class does a few useful things for you, it:
@@ -70,7 +71,7 @@ The Safe class does a few useful things for you, it:
 ### The Access class
 Through the Access class you specify the Lock object you want to use, access the Value object using pointer semantics (* and ->) and define whether you want this access to be read-write or read-only. For every access into a Safe object,
 * define the locking behavior by choosing the LockType template parameter.
-* decide whether the access should be const-qualified (SharedAccess alias) or not (Access alias).
+* decide whether the access should is read-write or read only.
 * access the value using pointer semantics: * and ->.
 ### The helper aliases
 The helper aliases are the way to declare Access objects suitable for a Safe object. The Safe class defines Access and SharedAccess which are templated on the Lock type. Four other aliases exist in the safe namespace for c++11's locks:
@@ -96,7 +97,7 @@ safe::Safe<int> safeValue;
 safe::UniqueLock<safe::Safe<int>> access(safeValue);
 cv.wait(access.lock);
 ```
-### Returning a LockGuard object
+### Returning a Access object
 Most of the time when you use safe, you will have a Safe object as a private member variable of your class and use it to access its value object in a safe way. Example:
 ```c++
 #include "safe.hpp"
@@ -113,7 +114,7 @@ private:
 	safe::Safe<int> m_safeCount;
 };
 ```
-When a client calls the increment() function, you lock the Safe object using a std::lock_guard, and then change its value. Here, this is done as a one liner: constructing the LockGuard object (locking the mutex), dereferencing it to get a reference to the int, incrementing the int and destructing the LockGuard object (unlocking the mutex). This is all nice and good, but imagine you would like the client to do more than just increment the count ? Will you write a function for every operation the client might want to use ? Even then, the locking and unlocking will be too fine-grained, as it will happen at every call of a function. The right thing to do is to return a LockGuard object to the client:
+When a client calls the increment() function, you lock the Safe object using a std::lock_guard, and then change its value. Here, this is done as a one liner: constructing the LockGuard object (locking the mutex), dereferencing it to get a reference to the int, incrementing the int and destructing the LockGuard object (unlocking the mutex). This is all nice and good, but imagine you would like the client to do more than just increment the count ? Will you write a function for every operation the client might want to use ? Even then, the locking and unlocking will be too fine-grained, as it will happen at every call of a function. The right thing to do is to return a Access object to the client:
 ```c++
 ...
 	safe::LockGuard<safe::Safe<int>> get()
@@ -122,17 +123,17 @@ When a client calls the increment() function, you lock the Safe object using a s
 	}
 ...
 ```
-There are 2 tricks you must apply for this to work out. First, you must return the value by list-initialization. Second, the client must capture the return value by rvalue reference:
+Returning a safe::UniqueLock is straightforward, but if you want the Access object to be a safe::LockGuard, there are 2 tricks you must apply. First, you must return the value by list-initialization, as shown above. Second, the client must capture the return value by rvalue reference:
 ```c++
-MultithreadCount multithreadNbrOfLinesOfCode;
+MultithreadCount count;
 {
-	auto&& nbrOfLinesOfCode = multithreadNbrOfLinesOfCode.get();
+	auto&& countAccess = multithreadCount.get();
 	--nbrOfLinesOfCode;
 }
 ```
-Through the nbrOfLinesOfCode variable, the client can do whatever he likes with the count value. For the lifetime of nbrOfLinesOfCode, the mutex will be locked thanks to the use of std::lock_guard. When nbrOfLinesOfCode goes out of scope, the mutex is unlocked and the count is not accessible anymore. For this usage, do use a safe::LockGuard, because these cannot be transfered from one scope to another, and thus clients are less likely to keep the nbrOfLinesOfCode variable alive for too long (keep in mind: the mutex is locked as long as nbrOfLinesOfCode lives, so it better be short-lived!).
+Through the countAccess variable, the client can do whatever he likes with the count value. For the lifetime of countAccess, the mutex will be locked thanks to the use of std::lock_guard. When nbrOfLinesOfCode goes out of scope, the mutex is unlocked and the count is not accessible anymore. I like safe::LockGuard objects for this usage, because they cannot be transfered from one scope to another, and thus clients are less likely to keep them alive for too long (keep in mind: the mutex is locked as long as countAccess lives, so it better be short-lived!).
 
-*Note: If I am not mistaken, the two tricks are not required in c++17. If you use c++17 you can return and capture as you normally would.*
+*Note: If I am not mistaken, the two tricks are not required in c++17. If you use c++17 you can return and capture a non-copyable-moveable variable as you normally would a copyable/movealbe one.*
 
 ## Complete example
 The State and Resource classes from my mess repository use safe.
