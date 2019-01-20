@@ -74,6 +74,21 @@ namespace safe
 		m_lockable(std::forward<LockableArg>(lockableArg)),
 		m_value(std::forward<ValueArgs>(valueArgs)...)
   {}
+
+  template<typename ValueType, typename LockableType>
+	template<template<typename> class LockType>
+	auto Safe<ValueType, LockableType>::access() -> typename std::conditional<LockTraits<LockType>::isShared, Access<LockType, ReadOnly>, Access<LockType, ReadWrite>>::type
+	{
+		return {*this};
+	}
+
+  template<typename ValueType, typename LockableType>
+	template<template<typename> class LockType, ReadOrWrite AccessType>
+	typename Safe<ValueType, LockableType>::template Access<LockType, AccessType> Safe<ValueType, LockableType>::access()
+	{
+		return {*this};
+	}
+
   template<typename ValueType, typename LockableType>
   typename Safe<ValueType, LockableType>::ConstReferenceType Safe<ValueType, LockableType>::unsafe() const noexcept
 	{

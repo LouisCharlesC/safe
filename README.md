@@ -1,6 +1,6 @@
 # Make your multi-thread code *safe* and crystal clear!
 ## Overview
-safe is a tiny library that helps you get your multi-threaded code right and understandable. It defines the Safe and Access classes. A Safe object combines a lockable object (e.g. std::mutex) and a value object (whatever you need to protect with the lockable object). You cannot directly access the value through the Safe object, you need the Access class to do so.
+safe is a tiny library that helps you get your multi-threaded code right and understandable. It defines the Safe and Access classes. A Safe object combines a lockable object (e.g. std::mutex) and a value object (whatever you need to protect with the lockable object). You do not directly access the value through the Safe object, you use an Access object to do so.
 
 C++11 introduced RAII for mutexes with the std::lock_guard and std::unique_lock classes. In the RAII idiom, the state of the lockable object is tied to the lifetime of a lock object. Safe pushes this one step further with Access objects by also tying the possibility to access the value object to the lock's lifetime.
 
@@ -9,22 +9,22 @@ Here is why you want to use safe:
 ```c++
 std::mutex frontEndMutex;
 std::mutex backEndMutex;
-int count; // <-- do I need to lock a mutex to safely access this variable ?
+int nbrOfWillyWallers; // <-- do I need to lock a mutex to safely access this variable ?
 {
 	std::lock_guard<std::mutex> lock(frontEndMutex); // <-- is this the right mutex ?
-	++count;
+	++nbrOfWillyWallers;
 }
---count; // <-- unprotected access, is this intended ?
+--nbrOfWillyWallers; // <-- unprotected access, is this intended ?
 ```
 ### With safe
 ```c++
 std::mutex frontEndMutex;
-safe::Safe<int> safeCount; // <-- value and mutex packaged together!
+safe::Safe<int> safeNbrOfWillyWallers; // <-- value and mutex packaged together!
 {
-	safe::LockGuard<safe::Safe<int>> count(safeCount); // <-- right mutex: guaranteed!
-	++*count; // access the vector using pointer semantics: * and ->
+	safe::LockGuard<safe::Safe<int>> nbrOfWillyWallers(safeNbrOfWillyWallers); // <-- right mutex: guaranteed!
+	++*nbrOfWillyWallers; // access the vector using pointer semantics: * and ->
 }
---safeCount.unsafe(); // <-- unprotected access: clearly expressed!
+--safeNbrOfWillyWallers.unsafe(); // <-- unprotected access: clearly expressed!
 ```
 ## Vocabulary
 * safe: the safe library.
@@ -32,8 +32,8 @@ safe::Safe<int> safeCount; // <-- value and mutex packaged together!
 * Lockable object: an object that exhibits the Lockable interface: lock, try_lock and unlock.
 * Safe object: Hides the value object until you lock the lockable object.
 * Lock object: an object that manages a lockable object. Examples are std::lock_guard and std::unique_lock.
-* Access object: locks the lockable object and gives access to the value object.
-* Locking behavior: the combination of the lockable object and the lock object define the locking behavior. In safe, there are two axes of locking behavior: lock_guard vs unique_lock, and shared vs exclusive access. To achieve shared locking, you need both a shared lockable (e.g. c++17's std::shared_mutex) and a shared lock (e.g. c++14's shared_unique_lock and boost's shared_lock_guard). The read-only Access class complements these by only providing const access to the value.
+* Access object: a Lock object that also gives access to the value object.
+* Locking behavior: the combination of the lockable object and the lock object define the locking behavior. In safe, there are two axes of locking behavior: lock_guard vs unique_lock, and shared vs exclusive access. To achieve shared locking, you need both a shared lockable (e.g. c++17's std::shared_mutex) and a shared lock (e.g. c++14's shared_unique_lock and boost's shared_lock_guard). To enforce the read-only aspect of shared locking use ReadOnly for the ReadOrWrite template parameter of your Access objects.
 ## Main features:
 ### 1. Choose any lockable and lock that fit your needs!
 The Safe class is templated on the lockable object: use std::mutex, std::shared_mutex (c++17), name it!

@@ -65,26 +65,26 @@ void readmeWithoutSafeExample()
 {
 std::mutex frontEndMutex;
 std::mutex backEndMutex;
-int count; // <-- do I need to lock a mutex to safely access this variable ?
+int nbrOfWillyWallers; // <-- do I need to lock a mutex to safely access this variable ?
 {
 	std::lock_guard<std::mutex> lock(frontEndMutex); // <-- is this the right mutex ?
-	++count;
+	++nbrOfWillyWallers;
 }
---count; // <-- unprotected access, is this intended ?
+--nbrOfWillyWallers; // <-- unprotected access, is this intended ?
 }
 
 void readmeWithSafeExample()
 {
 std::mutex frontEndMutex;
-safe::Safe<int> safeCount; // <-- value and mutex packaged together!
+safe::Safe<int> safeNbrOfWillyWallers; // <-- value and mutex packaged together!
 {
-	safe::LockGuard<safe::Safe<int>> count(safeCount); // <-- right mutex: guaranteed!
-	++*count; // access the vector using pointer semantics: * and ->
+	safe::LockGuard<safe::Safe<int>> nbrOfWillyWallers(safeNbrOfWillyWallers); // <-- right mutex: guaranteed!
+	++*nbrOfWillyWallers; // access the vector using pointer semantics: * and ->
 }
---safeCount.unsafe(); // <-- unprotected access: clearly expressed!
+--safeNbrOfWillyWallers.unsafe(); // <-- unprotected access: clearly expressed!
 }
 
-void readmeTag()
+void readmeDefaultConstructLockableTag()
 {
 std::mutex aMutex;
 
@@ -107,7 +107,7 @@ void readmeUniqueLockAccessIntoConditionVariableExample()
 std::condition_variable cv;
 safe::Safe<int> safeValue;
 
-safe::UniqueLock<safe::Safe<int>> access(safeValue);
+auto access = safeValue.access<std::unique_lock>();
 cv.wait(access.lock);
 }
 
@@ -130,9 +130,9 @@ private:
 	safe::Safe<int> m_safeCount;
 };
 
-MultithreadCount safeNbrOfLinesOfCode;
+MultithreadCount safeNbrOfWillyWallers;
 {
-	auto&& nbrOfLinesOfCode = safeNbrOfLinesOfCode.get();
+	auto&& nbrOfWillyWallers = safeNbrOfWillyWallers.get();
 }
 }
 

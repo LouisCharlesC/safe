@@ -8,6 +8,8 @@
 #ifndef SAFE_H_
 #define SAFE_H_
 
+#include "locktraits.h"
+
 #include <mutex>
 #include <type_traits>
 
@@ -218,6 +220,33 @@ namespace safe
 		 */
 		template<typename LockableArg, typename... ValueArgs>
 		Safe(LockableArg&& lockableArg, ValueArgs&&... valueArgs);
+
+	/**
+	 * @brief Creates an Access object with read-write behavior based on
+	 * LockType's isShared trait (see locktraits.h). By default, the
+	 * created Access object is read-write. If a specialization of
+	 * safe::LockTraits exists for the LockType and defines isShared as
+	 * true, then the Access is read-only.
+	 * 
+	 * @tparam LockType The type of the lock object that manages the
+	 * lockable object.
+	 * @return Access<LockType, ReadOnly> or Access<LockType, ReadWrite>
+	 * The Access object used to access the value object.
+	 */
+		template<template<typename> class LockType = std::lock_guard>
+		auto access() -> typename std::conditional<LockTraits<LockType>::isShared, Access<LockType, ReadOnly>, Access<LockType, ReadWrite>>::type;
+
+		/**
+		 * @brief Creates an Access object.
+		 * 
+		 * @tparam LockType The type of the lock object that manages the
+	 * lockable object.
+		 * @tparam AccessType ReadWrite or ReadOnly.
+		 * @return Access<LockType, AccessType> The Access object used to
+		 * access the value object.
+		 */
+		template<template<typename> class LockType, ReadOrWrite AccessType>
+		Access<LockType, AccessType> access();
 
 		/**
 		 * @brief Unsafe const accessor to the value.
