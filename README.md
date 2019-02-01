@@ -1,43 +1,40 @@
 # Make your multi-thread code *safe* and crystal clear!
 ## Overview
-safe is a tiny library that helps you get your multi-threaded code right and understandable. It defines the Safe and Access classes. A Safe object combines a lockable object (e.g. std::mutex) and a value object (whatever you need to protect with the lockable object). You do not directly access the value through the Safe object, you use an Access object to do so.
-
-C++11 introduced RAII for mutexes with the std::lock_guard and std::unique_lock classes. In the RAII idiom, the state of the lockable object is tied to the lifetime of a lock object. Safe pushes this one step further with Access objects by also tying the possibility to access the value object to the lock's lifetime.
+safe is a header-only library that helps you get your multi-threaded code right and understandable. It defines the Safe and Access classes. A Safe object packs a lockable object (e.g. std::mutex) and a value object (whatever you need to protect using the lockable object). Safe objects expose the value object through a simple, clear *and safe* interface: use the access() member functions to gain protected access to the value, and use the unsafe() functions for unprotected access. Protected access is achieved through the Access class. Think of the Access class as a combination of a lock (e.g. std::lock_guard) and a pointer to the value object. The lock gives you the full power of RAII for managing the lockable object, and the pointer-like functionality only exists for the span of time where the lockable object is locked.
 
 Here is why you want to use safe:
 ### Without safe
 ```c++
 std::mutex frontEndMutex;
 std::mutex backEndMutex;
-int nbrOfWillyWallers; // <-- do I need to lock a mutex to safely access this variable ?
+int value; // <-- do I need to lock a mutex to safely access this variable ?
 {
 	std::lock_guard<std::mutex> lock(frontEndMutex); // <-- is this the right mutex ?
-	++nbrOfWillyWallers;
+	++value;
 }
---nbrOfWillyWallers; // <-- unprotected access, is this intended ?
+--value; // <-- unprotected access, is this intended ?
 ```
 ### With safe
 ```c++
 std::mutex frontEndMutex;
-safe::Safe<int> safeNbrOfWillyWallers; // <-- value and mutex packaged together!
+safe::Safe<int> safeValue; // <-- value and mutex packaged together!
 {
-	safe::LockGuard<safe::Safe<int>> nbrOfWillyWallers(safeNbrOfWillyWallers); // <-- right mutex: guaranteed!
-	++*nbrOfWillyWallers; // access the vector using pointer semantics: * and ->
+	safe::LockGuard<safe::Safe<int>> value(safeNbrOfWillyWallers); // <-- right mutex: guaranteed!
+	++*value; // access the value using pointer semantics: * and ->
 }
---safeNbrOfWillyWallers.unsafe(); // <-- unprotected access: clearly expressed!
+--safeValue.unsafe(); // <-- unprotected access: clearly expressed!
 ```
 ## Vocabulary
 * safe: the safe library.
 * Value object: whatever needs to be protected by a lockable object.
-* Lockable object: an object that exhibits the Lockable interface: lock, try_lock and unlock.
-* Safe object: Hides the value object until you lock the lockable object.
+* Lockable object: an object that exhibits the BasicLockable interface: lock() and unlock(). Examples are std::mutex and std::recursive_mutex.
+* Safe object: Combines a value object and a lockable object. Expose the value object through a simple interface.
 * Lock object: an object that manages a lockable object. Examples are std::lock_guard and std::unique_lock.
 * Access object: a Lock object that also gives access to the value object.
-* Locking behavior: the combination of the lockable object and the lock object define the locking behavior. In safe, there are two axes of locking behavior: lock_guard vs unique_lock, and shared vs exclusive access. To achieve shared locking, you need both a shared lockable (e.g. c++17's std::shared_mutex) and a shared lock (e.g. c++14's shared_unique_lock and boost's shared_lock_guard). To enforce the read-only aspect of shared locking use ReadOnly for the ReadOrWrite template parameter of your Access objects.
+* Access mode: read-write or read-only. Access objects can be created with read-write or read-only behavior. Read-only Access objects are especially useful to enforce the read-only nature of shared_mutex (c++17) and shared_lock (c++14).
 ## Main features:
 ### 1. Choose any lockable and lock that fit your needs!
 The Safe class is templated on the lockable object: use std::mutex, std::shared_mutex (c++17), name it!
-
 The Access class is templated on the lock object: use std::lock_guard, boost::shared_lock_guard, anything you want!
 ### 2. Store the value object/lockable object inside the Safe object, or refer to existing objects
 You can use any combination of reference and non-reference types for your Safe objects:
@@ -58,8 +55,8 @@ safe::Safe<int, std::mutex&> noDefault(aMutex, 42); // value and lockable initia
 safe::Safe<int, std::mutex&> valueDefault(aMutex); // value is default constructed, and lockable is initialized, ok
 safe::Safe<int, std::mutex> lockableDefault(safe::default_construct_lockable, 42); // value is initialized to 42, and mutex is default constructed: need the safe::default_construct_lockable tag!
 ```
-### 4. Choose the locking behavior that suits each access.
-One you construct a Safe object, you fix the type of the lockable object you will use. From there, you will create an Access object every time you want to access your value. For each if these accesses, you can choose the appropriate lock, and whether the access is read-write or read only.
+### 4. Choose the lock and access mode that suits each access.
+One you construct a Safe object, you fix the type of the lockable object you will use. From there, you will create an Access object every time you want to access your value. For each if these accesses, you can choose the appropriate lock, and whether the access is read-write or read-only.
 ## Safe's interface
 ### The Safe class
 The Safe class does a few useful things for you, it:
@@ -77,6 +74,7 @@ Through the Access class you specify the Lock object you want to use, access the
 The helper aliases are the way to declare Access objects suitable for a Safe object. The Safe class defines Access and SharedAccess which are templated on the Lock type. Four other aliases exist in the safe namespace for c++11's locks:
 * **LockGuard** access using std::lock_guard: locking is tied to the lifetime of the access object.
 * **UniqueLock** access using std::unique_lock: you can unlock and re-lock the lockable at will, suitable to use with std::condition_variable.
+* **SharedLock** access using std::shared_lock (c++14): multiple threads can access the value object in read-only mode simultaneously.
 
 Add the aliases you need within the safe namespace for a uniform way to define your Access objects!
 ## Interesting use cases
