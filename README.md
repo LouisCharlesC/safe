@@ -21,7 +21,7 @@ safe::Safe<int> safeValue; // <-- value and mutex packaged together!
 {
 	safe::LockGuard<safe::Safe<int>> value(safeNbrOfWillyWallers); // <-- right mutex: guaranteed!
 	++*value; // access the value using pointer semantics: * and ->
-}
+} // from here, you cannot directly access the value anymore: jolly good, since the mutex is not locked anymore!
 --safeValue.unsafe(); // <-- unprotected access: clearly expressed!
 ```
 ## Vocabulary
