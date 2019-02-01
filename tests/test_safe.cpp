@@ -65,23 +65,23 @@ void readmeWithoutSafeExample()
 {
 std::mutex frontEndMutex;
 std::mutex backEndMutex;
-int nbrOfWillyWallers; // <-- do I need to lock a mutex to safely access this variable ?
+int value; // <-- do I need to lock a mutex to safely access this variable ?
 {
 	std::lock_guard<std::mutex> lock(frontEndMutex); // <-- is this the right mutex ?
-	++nbrOfWillyWallers;
+	++value;
 }
---nbrOfWillyWallers; // <-- unprotected access, is this intended ?
+--value; // <-- unprotected access, is this intended ?
 }
 
 void readmeWithSafeExample()
 {
 std::mutex frontEndMutex;
-safe::Safe<int> safeNbrOfWillyWallers; // <-- value and mutex packaged together!
+safe::Safe<int> safeValue; // <-- value and mutex packaged together!
 {
-	safe::LockGuard<safe::Safe<int>> nbrOfWillyWallers(safeNbrOfWillyWallers); // <-- right mutex: guaranteed!
-	++*nbrOfWillyWallers; // access the vector using pointer semantics: * and ->
-}
---safeNbrOfWillyWallers.unsafe(); // <-- unprotected access: clearly expressed!
+	safe::LockGuard<safe::Safe<int>> value(safeValue); // <-- right mutex: guaranteed!
+	++*value; // access the value using pointer semantics: * and ->
+} // from here, you cannot directly access the value anymore: jolly good, since the mutex is not locked anymore!
+--safeValue.unsafe(); // <-- unprotected access: clearly expressed!
 }
 
 void readmeDefaultConstructLockableTag()
@@ -175,33 +175,10 @@ TEST_F(SafeTest, DefaultLockableValueConstructor) {
 TEST_F(SafeTest, DefaultLockableDefaultValueConstructor) {
 	SafeLockableValueType safe;
 }
-TEST_F(AccessTest, SafeLockableRefValueRefSharedAccess) {
-	SafeLockableRefValueRefType safe(lockable, value);
-	
-	SafeLockableRefValueRefSharedAccessType access(safe);
-	
-	EXPECT_EQ(&*access, &value);
-	EXPECT_EQ(&*static_cast<const SafeLockableRefValueRefSharedAccessType&>(access), &value);
-	EXPECT_EQ(access.operator->(), &value);
-	EXPECT_EQ(static_cast<const SafeLockableRefValueRefSharedAccessType&>(access).operator->(), &value);
-	EXPECT_EQ(&access.lock.lockable, &lockable);
-	EXPECT_EQ(&static_cast<const SafeLockableRefValueRefSharedAccessType&>(access).lock.lockable, &lockable);
-
-}
-TEST_F(SafeTest, SafeLockableValueSharedAccess) {
-	SafeLockableValueType safe(safe::default_construct_lockable, value);
-	
-	SafeLockableValueSharedAccessType access(safe);
-	
-	EXPECT_EQ(&*access, &safe.unsafe());
-	EXPECT_EQ(&*static_cast<const SafeLockableValueSharedAccessType&>(access), &safe.unsafe());
-	EXPECT_EQ(access.operator->(), &safe.unsafe());
-	EXPECT_EQ(static_cast<const SafeLockableValueSharedAccessType&>(access).operator->(), &safe.unsafe());
-}
 TEST_F(SafeTest, SafeLockableRefValueRefAccess) {
 	SafeLockableRefValueRefType safe(lockable, value);
 	
-	SafeLockableRefValueRefAccessType access(safe);
+	SafeLockableRefValueRefAccessType access = safe.access<DummyLock>();
 	
 	EXPECT_EQ(&*access, &value);
 	EXPECT_EQ(&*static_cast<const SafeLockableRefValueRefAccessType&>(access), &value);
@@ -213,13 +190,35 @@ TEST_F(SafeTest, SafeLockableRefValueRefAccess) {
 TEST_F(SafeTest, SafeLockableValueAccess) {
 	SafeLockableValueType safe(safe::default_construct_lockable, value);
 	
-	SafeLockableValueAccessType access(safe);
+	SafeLockableValueAccessType access = safe.access<DummyLock>();
 	
 	EXPECT_EQ(&*access, &safe.unsafe());
 	EXPECT_EQ(&*static_cast<const SafeLockableValueAccessType&>(access), &safe.unsafe());
 	EXPECT_EQ(access.operator->(), &safe.unsafe());
 	EXPECT_EQ(static_cast<const SafeLockableValueAccessType&>(access).operator->(), &safe.unsafe());
-	}
+}
+TEST_F(SafeTest, ConstSafeLockableRefValueRefSharedAccess) {
+	const SafeLockableRefValueRefType safe(lockable, value);
+	
+	SafeLockableRefValueRefSharedAccessType access = safe.access<DummyLock>();
+	
+	EXPECT_EQ(&*access, &value);
+	EXPECT_EQ(&*static_cast<const SafeLockableRefValueRefSharedAccessType&>(access), &value);
+	EXPECT_EQ(access.operator->(), &value);
+	EXPECT_EQ(static_cast<const SafeLockableRefValueRefSharedAccessType&>(access).operator->(), &value);
+	EXPECT_EQ(&access.lock.lockable, &lockable);
+	EXPECT_EQ(&static_cast<const SafeLockableRefValueRefSharedAccessType&>(access).lock.lockable, &lockable);
+}
+TEST_F(SafeTest, ConstSafeLockableValueSharedAccess) {
+	const SafeLockableValueType safe(safe::default_construct_lockable, value);
+	
+	SafeLockableValueSharedAccessType access = safe.access<DummyLock>();
+	
+	EXPECT_EQ(&*access, &safe.unsafe());
+	EXPECT_EQ(&*static_cast<const SafeLockableValueSharedAccessType&>(access), &safe.unsafe());
+	EXPECT_EQ(access.operator->(), &safe.unsafe());
+	EXPECT_EQ(static_cast<const SafeLockableValueSharedAccessType&>(access).operator->(), &safe.unsafe());
+}
 
 TEST_F(AccessTest, ReturnTypes) {
 	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock>::ConstPointerType, const int*>::value, "");

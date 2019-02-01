@@ -20,7 +20,9 @@ namespace safe
 	Safe<ValueType, LockableType>::AccessImpl<LockType, AccessType>::AccessImpl(const Safe<ValueType, LockableType>& safe) noexcept:
 		lock(safe.m_lockable.lockable),
 		m_value(safe.m_value)
-	{}
+	{
+		static_assert(AccessType==ReadOnly, "Can only construct ReadOnly Access from const Safe.");
+	}
 	template<typename ValueType, typename LockableType>
 	template<typename LockType, ReadOrWrite AccessType>
 	Safe<ValueType, LockableType>::AccessImpl<LockType, AccessType>::AccessImpl(Safe<ValueType, LockableType>& safe) noexcept:
@@ -77,7 +79,14 @@ namespace safe
 
   template<typename ValueType, typename LockableType>
 	template<template<typename> class LockType>
-	auto Safe<ValueType, LockableType>::access() -> typename std::conditional<LockTraits<LockType>::isShared, Access<LockType, ReadOnly>, Access<LockType, ReadWrite>>::type
+	typename Safe<ValueType, LockableType>::template Access<LockType, ReadOnly> Safe<ValueType, LockableType>::access() const
+	{
+		return {*this};
+	}
+
+  template<typename ValueType, typename LockableType>
+	template<template<typename> class LockType>
+	typename Safe<ValueType, LockableType>::template Access<LockType, LockTraits<LockType>::DefaultAccessMode> Safe<ValueType, LockableType>::access()// -> typename std::conditional<LockTraits<LockType>::isShared, Access<LockType, ReadOnly>, Access<LockType, ReadWrite>>::type
 	{
 		return {*this};
 	}

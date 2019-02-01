@@ -8,22 +8,48 @@
 #ifndef SAFE_H_
 #define SAFE_H_
 
-#include "locktraits.h"
+#include "safetraits.h"
 
 #include <mutex>
 #include <type_traits>
 
 namespace safe
 {
-	enum ReadOrWrite
-	{
-		ReadOnly,
-		ReadWrite
-	};
-
 	struct default_construct_lockable_t {};
 	static constexpr default_construct_lockable_t default_construct_lockable;
 	
+	namespace impl
+	{
+		/**
+		 * @brief A helper class that defines a member variable of type
+		 * MaybeReferenceLockableType. The variable is declared mutable if
+		 * MaybeReferenceLockableType is not a reference, the varialbe is
+		 * not mutable if MaybeReferenceLockableType is a reference.
+		 * 
+		 * @tparam MaybeReferenceLockableType 
+		 */
+		template<typename LockableType>
+		struct MutableIfNotReferenceLockableType
+		{
+			MutableIfNotReferenceLockableType() = default;
+			template<typename LockableArg>
+			MutableIfNotReferenceLockableType(LockableArg&& lockableArg):
+				lockable(std::forward<LockableArg>(lockableArg))
+			{}
+			/// Mutable Lockable object.
+			mutable LockableType lockable;
+		};
+		template<typename ReferenceLockableType>
+		struct MutableIfNotReferenceLockableType<ReferenceLockableType&>
+		{
+			MutableIfNotReferenceLockableType(ReferenceLockableType& lockable):
+				lockable(lockable)
+			{}
+			/// Reference to a Lockable object.
+			ReferenceLockableType& lockable;
+		};
+	} // namespace impl
+
 	/**
 	 * @brief Wraps a value together with the lockable object that
 	 * protects it for multi-threaded access.
@@ -48,35 +74,6 @@ namespace safe
 		using RemoveRefLockableType = typename std::remove_reference<LockableType>::type;
 		
 		/**
-		 * @brief A helper class that defines a member variable of type
-		 * MaybeReferenceLockableType. The variable is declared mutable if
-		 * MaybeReferenceLockableType is not a reference, the varialbe is
-		 * not mutable if MaybeReferenceLockableType is a reference.
-		 * 
-		 * @tparam MaybeReferenceLockableType 
-		 */
-		template<typename MaybeReferenceLockableType>
-		struct MutableIfNotReferenceLockableType
-		{
-			MutableIfNotReferenceLockableType() = default;
-			template<typename LockableArg>
-			MutableIfNotReferenceLockableType(LockableArg&& lockableArg):
-				lockable(std::forward<LockableArg>(lockableArg))
-			{}
-			/// Mutable Lockable object.
-			mutable MaybeReferenceLockableType lockable;
-		};
-		template<typename ReferenceLockableType>
-		struct MutableIfNotReferenceLockableType<ReferenceLockableType&>
-		{
-			MutableIfNotReferenceLockableType(ReferenceLockableType& lockable):
-				lockable(lockable)
-			{}
-			/// Reference to a Lockable object.
-			ReferenceLockableType& lockable;
-		};
-
-		/**
 		 * @brief Manages a lockable object and gives access to the value
 		 * from a Safe object.
 		 * 
@@ -90,12 +87,12 @@ namespace safe
 		 * lockable object.
 		 * @tparam Shared Whether the access should be const.
 		 */
-		template<typename LockType, ReadOrWrite AccessType>
+		template<typename LockType, ReadOrWrite AccessMode>
 		class AccessImpl
 		{
 		private:
 			/// ValueType with const qualifier if template parameter Shared is true.
-			using ConditionallyConstValueType = typename std::conditional<AccessType==ReadOnly, const RemoveRefValueType, RemoveRefValueType>::type;
+			using ConditionallyConstValueType = typename std::conditional<AccessMode==ReadOnly, const RemoveRefValueType, RemoveRefValueType>::type;
 
 		public:
 			/// Pointer-to-const ValueType
@@ -190,8 +187,8 @@ namespace safe
 		using ReferenceType = RemoveRefValueType&;
 
 		/// Template type alias to an AccessImpl with non-const access
-		template<template<typename> class LockType, ReadOrWrite AccessType=ReadWrite>
-		using Access = AccessImpl<LockType<RemoveRefLockableType>, AccessType>;
+		template<template<typename> class LockType, ReadOrWrite AccessMode=ReadWrite>
+		using Access = AccessImpl<LockType<RemoveRefLockableType>, AccessMode>;
 		
 		/**
 		 * @brief Construct a Safe object
@@ -221,12 +218,24 @@ namespace safe
 		template<typename LockableArg, typename... ValueArgs>
 		Safe(LockableArg&& lockableArg, ValueArgs&&... valueArgs);
 
+		/**
+		 * @brief Creates an Access object with read-only access mode.
+		 * 
+		 * @tparam LockType The type of the lock object that manages the
+		 * lockable object.
+		 * @return Access<LockType, ReadOnly> The Access object used to
+		 * access the value object.
+		 */
+		template<template<typename> class LockType = std::lock_guard>
+		Access<LockType, ReadOnly> access() const;
+
 	/**
-	 * @brief Creates an Access object with read-write behavior based on
-	 * LockType's isShared trait (see locktraits.h). By default, the
-	 * created Access object is read-write. If a specialization of
-	 * safe::LockTraits exists for the LockType and defines isShared as
-	 * true, then the Access is read-only.
+	 * @brief Creates an Access object with read-or-write access based
+	 * on LockType's isShared trait (see safetraits.h). If no
+	 * specialization of safe::LockTraits exists, the access is
+	 * read-write. If a specialization of the trait exists, the access
+	 * type depends on the value of isShared. If isShared is true, access
+	 * is read-only, if isShared is false, access is read-write.
 	 * 
 	 * @tparam LockType The type of the lock object that manages the
 	 * lockable object.
@@ -234,19 +243,19 @@ namespace safe
 	 * The Access object used to access the value object.
 	 */
 		template<template<typename> class LockType = std::lock_guard>
-		auto access() -> typename std::conditional<LockTraits<LockType>::isShared, Access<LockType, ReadOnly>, Access<LockType, ReadWrite>>::type;
+		Access<LockType, LockTraits<LockType>::DefaultAccessMode> access();
 
 		/**
 		 * @brief Creates an Access object.
 		 * 
 		 * @tparam LockType The type of the lock object that manages the
-	 * lockable object.
-		 * @tparam AccessType ReadWrite or ReadOnly.
-		 * @return Access<LockType, AccessType> The Access object used to
+		 * lockable object.
+		 * @tparam AccessMode ReadWrite or ReadOnly.
+		 * @return Access<LockType, AccessMode> The Access object used to
 		 * access the value object.
 		 */
-		template<template<typename> class LockType, ReadOrWrite AccessType>
-		Access<LockType, AccessType> access();
+		template<template<typename> class LockType, ReadOrWrite AccessMode>
+		Access<LockType, AccessMode> access();
 
 		/**
 		 * @brief Unsafe const accessor to the value.
@@ -278,18 +287,24 @@ namespace safe
 
 	private:
 		/// The helper class instance that holds the lockable object, or a reference to it.
-		MutableIfNotReferenceLockableType<LockableType> m_lockable;
+		impl::MutableIfNotReferenceLockableType<LockableType> m_lockable;
 
 		/// The value to protect.
 		ValueType m_value;
 	};
 
-	/// Access with std::lock_guard behavior
-	template<typename SafeType, ReadOrWrite AccessType=ReadWrite>
-	using LockGuard = typename SafeType::template Access<std::lock_guard, AccessType>;
-	/// Access with std::unique_lock behavior
-	template<typename SafeType, ReadOrWrite AccessType=ReadWrite>
-	using UniqueLock = typename SafeType::template Access<std::unique_lock, AccessType>;
+	/// Access with std::lock_guard
+	template<typename SafeType, ReadOrWrite AccessMode=ReadWrite>
+	using LockGuard = typename SafeType::template Access<std::lock_guard, AccessMode>;
+	/// Access with std::unique_lock
+	template<typename SafeType, ReadOrWrite AccessMode=ReadWrite>
+	using UniqueLock = typename SafeType::template Access<std::unique_lock, AccessMode>;
+#if __cplusplus >= 201402L
+	/// Access with std::shared_lock
+	template<typename SafeType>
+	using SharedLock = typename SafeType::template Access<std::shared_lock, ReadOnly>;
+#endif // __cplusplus >= 201402L
+
 }  // namespace safe
 
 #endif /* SAFE_H_ */
