@@ -73,22 +73,23 @@ namespace safe
 		/// Type LockableType with reference removed, if present
 		using RemoveRefLockableType = typename std::remove_reference<LockableType>::type;
 		
+	public:
 		/**
 		 * @brief Manages a lockable object and gives access to the value
 		 * from a Safe object.
 		 * 
 		 * The LockType template parameter determines the locking behavior
-		 * of the AccessImpl class. LockType can for instance be 
+		 * of the Access class. LockType can for instance be 
 		 * std::lock_guard or std::unique_lock. The locking behavior will
-		 * be as expected. The value can be accessed through an AccessImpl
+		 * be as expected. The value can be accessed through an Access
 		 * object using pointer semantics * and ->.
 		 * 
 		 * @tparam LockType The type of the lock object that manages the
 		 * lockable object.
 		 * @tparam Shared Whether the access should be const.
 		 */
-		template<typename LockType, ReadOrWrite AccessMode>
-		class AccessImpl
+		template<template<typename> class LockType, ReadOrWrite AccessMode=ReadWrite>
+		class Access
 		{
 		private:
 			/// ValueType with const qualifier if template parameter Shared is true.
@@ -107,24 +108,24 @@ namespace safe
 			using ReferenceType = ConditionallyConstValueType&;
 
 			/**
-			 * @brief Construct an AccessImpl object that will manage a Safe
+			 * @brief Construct an Access object that will manage a Safe
 			 * object, locking its lockable object and exposing its value
 			 * object.
 			 * 
 			 * @param[in] safe The Safe object to manage.
 			 */
-			AccessImpl(const Safe& safe) noexcept;
+			Access(const Safe& safe) noexcept;
 			/**
-			 * @brief Construct an AccessImpl object that will manage a Safe
+			 * @brief Construct an Access object that will manage a Safe
 			 * object, locking its lockable object and exposing its value
 			 * object.
 			 * 
 			 * @param[in] safe The Safe object to manage.
 			 */
-			AccessImpl(Safe& safe) noexcept;
+			Access(Safe& safe) noexcept;
 
 			/**
-			 * @brief Construct an AccessImpl object from a reference to the
+			 * @brief Construct an Access object from a reference to the
 			 * value to expose and perfect forwarding the other arguments to
 			 * construct the LockType object.
 			 * 
@@ -132,11 +133,11 @@ namespace safe
 			 * constructors, to change the type of the LockType or to pass
 			 * locking behavior tags (like std::adopt_lock, std::try_to_lock
 			 * and std::defer_lock) to the LockType object.
-			 * This can be useful to change from an AccessImpl object with
+			 * This can be useful to change from an Access object with
 			 * std::unique_lock behavior to one with std::lock_guard
 			 * behavior. This is done so, with the lockable object readily
 			 * locked by the uniqueLockAccess object:
-			 * AccessImpl<std::lock_guard, SharedOrNot> lockguardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
+			 * Access<std::lock_guard, SharedOrNot> lockguardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
 			 * 
 			 * @tparam LockArgs Perfect forwarding types to construct the
 			 * LockType object.
@@ -145,7 +146,7 @@ namespace safe
 			 * LockType object.
 			 */
 			template<typename... LockArgs>
-			AccessImpl(ReferenceType value, LockArgs&&... lockArgs);
+			Access(ReferenceType value, LockArgs&&... lockArgs);
 
 			/**
 			 * @brief Const accessor to the value.
@@ -173,22 +174,17 @@ namespace safe
 			ReferenceType operator*() noexcept;
 
 			/// The lock that manages the lockable object.
-			mutable LockType lock;
+			mutable LockType<RemoveRefLockableType> lock;
 
 		private:
 			/// The protected value.
 			ReferenceType m_value;
 		};
 
-	public:
 		/// Reference-to-const ValueType.
 		using ConstReferenceType = const RemoveRefValueType&;
 		/// Reference to ValueType.
 		using ReferenceType = RemoveRefValueType&;
-
-		/// Template type alias to an AccessImpl with non-const access
-		template<template<typename> class LockType, ReadOrWrite AccessMode=ReadWrite>
-		using Access = AccessImpl<LockType<RemoveRefLockableType>, AccessMode>;
 		
 		/**
 		 * @brief Construct a Safe object

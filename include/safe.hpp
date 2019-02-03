@@ -16,47 +16,47 @@ namespace safe
 	 * Lock
 	 */
 	template<typename ValueType, typename LockableType>
-	template<typename LockType, ReadOrWrite AccessType>
-	Safe<ValueType, LockableType>::AccessImpl<LockType, AccessType>::AccessImpl(const Safe<ValueType, LockableType>& safe) noexcept:
+	template<template<typename> class LockType, ReadOrWrite AccessMode>
+	Safe<ValueType, LockableType>::Access<LockType, AccessMode>::Access(const Safe<ValueType, LockableType>& safe) noexcept:
 		lock(safe.m_lockable.lockable),
 		m_value(safe.m_value)
 	{
-		static_assert(AccessType==ReadOnly, "Can only construct ReadOnly Access from const Safe.");
+		static_assert(AccessMode==ReadOnly, "AccessMode must be ReadOnly when you construct from a const Safe object.");
 	}
 	template<typename ValueType, typename LockableType>
-	template<typename LockType, ReadOrWrite AccessType>
-	Safe<ValueType, LockableType>::AccessImpl<LockType, AccessType>::AccessImpl(Safe<ValueType, LockableType>& safe) noexcept:
+	template<template<typename> class LockType, ReadOrWrite AccessMode>
+	Safe<ValueType, LockableType>::Access<LockType, AccessMode>::Access(Safe<ValueType, LockableType>& safe) noexcept:
 		lock(safe.m_lockable.lockable),
 		m_value(safe.m_value)
 	{}
 	template<typename ValueType, typename LockableType>
-	template<typename LockType, ReadOrWrite AccessType>
+	template<template<typename> class LockType, ReadOrWrite AccessMode>
 	template<typename... LockArgs>
-	Safe<ValueType, LockableType>::AccessImpl<LockType, AccessType>::AccessImpl(ReferenceType value, LockArgs&&... lockArgs):
+	Safe<ValueType, LockableType>::Access<LockType, AccessMode>::Access(ReferenceType value, LockArgs&&... lockArgs):
 		lock(std::forward<LockArgs>(lockArgs)...),
 		m_value(value)
 	{}
 	template<typename ValueType, typename LockableType>
-	template<typename LockType, ReadOrWrite AccessType>
-	typename Safe<ValueType, LockableType>::template AccessImpl<LockType, AccessType>::ConstPointerType Safe<ValueType, LockableType>::AccessImpl<LockType, AccessType>::operator->() const noexcept
+	template<template<typename> class LockType, ReadOrWrite AccessMode>
+	typename Safe<ValueType, LockableType>::template Access<LockType, AccessMode>::ConstPointerType Safe<ValueType, LockableType>::Access<LockType, AccessMode>::operator->() const noexcept
 	{
 		return &m_value;
 	}
 	template<typename ValueType, typename LockableType>
-	template<typename LockType, ReadOrWrite AccessType>
-	typename Safe<ValueType, LockableType>::template AccessImpl<LockType, AccessType>::PointerType Safe<ValueType, LockableType>::AccessImpl<LockType, AccessType>::operator->() noexcept
+	template<template<typename> class LockType, ReadOrWrite AccessMode>
+	typename Safe<ValueType, LockableType>::template Access<LockType, AccessMode>::PointerType Safe<ValueType, LockableType>::Access<LockType, AccessMode>::operator->() noexcept
 	{
 		return &m_value;
 	}
 	template<typename ValueType, typename LockableType>
-	template<typename LockType, ReadOrWrite AccessType>
-	typename Safe<ValueType, LockableType>::template AccessImpl<LockType, AccessType>::ConstReferenceType Safe<ValueType, LockableType>::AccessImpl<LockType, AccessType>::operator*() const noexcept
+	template<template<typename> class LockType, ReadOrWrite AccessMode>
+	typename Safe<ValueType, LockableType>::template Access<LockType, AccessMode>::ConstReferenceType Safe<ValueType, LockableType>::Access<LockType, AccessMode>::operator*() const noexcept
 	{
 		return m_value;
 	}
 	template<typename ValueType, typename LockableType>
-	template<typename LockType, ReadOrWrite AccessType>
-	typename Safe<ValueType, LockableType>::template AccessImpl<LockType, AccessType>::ReferenceType Safe<ValueType, LockableType>::AccessImpl<LockType, AccessType>::operator*() noexcept
+	template<template<typename> class LockType, ReadOrWrite AccessMode>
+	typename Safe<ValueType, LockableType>::template Access<LockType, AccessMode>::ReferenceType Safe<ValueType, LockableType>::Access<LockType, AccessMode>::operator*() noexcept
 	{
 		return m_value;
 	}
@@ -92,8 +92,8 @@ namespace safe
 	}
 
   template<typename ValueType, typename LockableType>
-	template<template<typename> class LockType, ReadOrWrite AccessType>
-	typename Safe<ValueType, LockableType>::template Access<LockType, AccessType> Safe<ValueType, LockableType>::access()
+	template<template<typename> class LockType, ReadOrWrite AccessMode>
+	typename Safe<ValueType, LockableType>::template Access<LockType, AccessMode> Safe<ValueType, LockableType>::access()
 	{
 		return {*this};
 	}
