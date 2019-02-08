@@ -33,13 +33,13 @@ safe::Safe<int> safeValue; // <-- value and mutex packaged together!
 * Access object: a Lock object that also gives access to the value object.
 * Access mode: read-write or read-only. Access objects can be created with read-write or read-only behavior. Read-only Access objects are especially useful to enforce the read-only nature of shared_mutex (c++17) and shared_lock (c++14).
 ## Main features:
-### 1. Clarity and Safety
+### 1. Safety and clarity
 #### Get your code right
 No more naked sensitive variables, no more locking the wrong mutex, no more mistaken access outside the safety of a locked mutex.
 #### Hide those ugly details
 No more mutexes, no more locks, no more mutable (ever used a mutex within a const-qualified member function ?).
 ### 2. Choose any lockable and lock that fit your needs
-The Safe class is templated on the lockable object: use std::mutex, std::shared_mutex (c++17), name it!  
+The Safe class is templated on the lockable object: use std::mutex, std::shared_mutex (c++17), name it! 
 The Access class is templated on the lock object: use std::lock_guard, boost::shared_lock_guard, anything you want!
 ### 3. Store the value object/lockable object inside the Safe object, or refer to existing objects
 You can use any combination of reference and non-reference types for your Safe objects:
@@ -55,10 +55,10 @@ safe::Safe<int&, std::mutex&>;
 ```c++
 std::mutex aMutex;
 
-safe::Safe<int, std::mutex> bothDefault; // value and lockable are default constructed, ok
-safe::Safe<int, std::mutex&> noDefault(aMutex, 42); // value and lockable initialized, ok
-safe::Safe<int, std::mutex&> valueDefault(aMutex); // value is default constructed, and lockable is initialized, ok
-safe::Safe<int, std::mutex> lockableDefault(safe::default_construct_lockable, 42); // value is initialized to 42, and mutex is default constructed: need the safe::default_construct_lockable tag!
+safe::Safe<int, std::mutex> bothDefault; // lockable and value are default constructed
+safe::Safe<int, std::mutex&> noDefault(aMutex, 42); // lockable and value are initialized
+safe::Safe<int, std::mutex&> valueDefault(aMutex); // lockable is initialized, and value is default constructed
+safe::Safe<int, std::mutex> lockableDefault(safe::default_construct_lockable, 42); // lockable is default constructed, and value is initialized
 ```
 ### 5. Choose the lock and access mode that suits each access
 One you construct a Safe object, you fix the type of the lockable object you will use. From there, you will create an Access object every time you want to access your value (i.e. every time you would normally have constructed a lock object). For each of these accesses, you can choose the appropriate lock, and whether the access is read-write or read-only.
@@ -72,13 +72,33 @@ std::lock_guard<std::mutex> lock(mutex); // before safe
 safe::LockGuard<safe::Safe<int>> value(safeValue); // with safe
 ```
 ### One-liners
-The bare access() member function yields an Access<std::lock_guard> object with read-write behavior. This allows you to write safe and compact one-liners. Obviously, if you need to access your value object twice, do not use the one-liners!
+The Safe::access() member function yields a safe::LockGuard object with read-write behavior. This allows you to write safe and compact one-liners.
 ```c++
 safe::Safe<std::vector<int>> safeVector;
 *safeVector.access() = std::vector(1, 2);
 safeVector.access()->clear();
 ```
-### Access objects with std::condition_variable
+### Non-one-liners
+If you need to perform several operations on your value object, please do not use the one-liners! Either use the type aliases as in the *Replace locks by accesses* example, or store the return value of the call to Safe::access(). Here are the two different ways to rework one-liner example:
+```c++
+safe::Safe<std::vector<int>> safeVector;
+{
+	auto&& vector = safeVector.access();
+	*vector = std::vector(1, 2);
+	vector->clear();
+}
+```
+```c++
+safe::Safe<std::vector<int>> safeVector;
+{
+	safe::LockGuard<safe::Safe<std::vector<int>>> vector(safeVector);
+	*vector = std::vector(1, 2);
+	vector->clear();
+}
+```
+**Notice the rvalue-reference** when capturing the return value of the call to Safe::access(). It is **mandatory** to use this syntax, else your compiler will complain in a very difficult to understand way. The rvalue-reference is necessary because the safe::LockGuard object returned by Safe::accesss() has a std::lock_guard member variable. std::lock_guard is non-copyable, non-moveable, hence safe::LockGuard also is non-copyable, non-moveable. This means it is only possible to capture a safe::LockGuard return value with an rvalue-reference. Honestly, it is no big deal, just type && and it will work fine.  
+In c++17, you do not need this rvalue reference, you can capture non-copyalbe, non-moveable return values as you normally would.
+### Access objects and std::condition_variable
 You can use Access objects with std::condition_variable if you specified a Lock object that can be locked and unlocked at will, like std::unique_lock:
 ```c++
 std::condition_variable cv;
@@ -87,11 +107,6 @@ safe::Safe<int> safeValue;
 auto value = safeValue.access<std::unique_lock>();
 cv.wait(value.lock);
 ```
-## placeholder
-### Capturing an Access<std::lock_guard> (a.k.a. safe::LockGuard)
-Calling the Safe::access() function returns an Access<std::lock_guard>.they aggregate a std::lock_guard oject which is non-copyable non-moveable. The Access<std::lock_guard> object inherits from the same behavior, and thus when you capture it from a call to Safe::access(), you must use a special syntax:
-### Templated safe code
-
 ## Advanced use cases
 ### std::unique_lock to std::lock_guard
 You can start by defining an Access parameterized with std::unique_lock, and later transfer the lockable's ownership to a std::lock_guard Access. The syntax is a little tricky, so here it is:
@@ -101,6 +116,32 @@ safe::Safe<int> safeValue;
 safe::UniqueLock<safe::Safe<int>> uniqueLockAccess(safeValue);
 safe::LockGuard<safe::Safe<int>> lockGuardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
 ```
+### Templated safe code
+Writing templated code using safe reveals a little bit too much the true nature of c++ because the Safe class contains template nested types and functions. It means that if your Safe object is templated, you need to use the following convoluted syntax:
+```c++
+template <typename Valuetype>
+class Example
+{
+public:
+	safe::Safe<ValueType> m_safeValue;
+
+	void exampleType()
+	{
+		safe::Safe<ValueType>::template Access<std::lock_guard> value(m_safeValue);
+	}
+	void exampleMemberFunction()
+	{
+		auto&& value = m_safeValue.template access<std::lock_guard>();
+	}
+};
+```
+The type aliases defined in the safe namespace are there to partially alleviate this problem, as they allow you to use the standard syntax even within templated code. As a matter of fact, the following codes compiles and works as expected:
+```c++
+	void exampleAlias()
+	{
+		safe::LockGuard<Safe<ValueType>> value(m_safeValue);
+	}
+```
 ### Returning an Access object
 Most of the time when you use safe, you will have a Safe object as a private member variable of your class and use it to access its value object in a safe way. Example:
 ```c++
@@ -109,30 +150,30 @@ Most of the time when you use safe, you will have a Safe object as a private mem
 class MultithreadCount
 {
 public:
-	void increment()
- 	{
-  		++*safe::LockGuard<safe::Safe<int>>(m_safeCount);
-	}
+    void increment()
+     {
+          ++*safe::LockGuard<safe::Safe<int>>(m_safeCount);
+    }
 
 private:
-	safe::Safe<int> m_safeCount;
+    safe::Safe<int> m_safeCount;
 };
 ```
 When a client calls the increment() function, you lock the Safe object using a std::lock_guard, and then change its value. Here, this is done as a one liner: constructing the LockGuard object (locking the mutex), dereferencing it to get a reference to the int, incrementing the int and destructing the LockGuard object (unlocking the mutex). This is all nice and good, but imagine you would like the client to do more than just increment the count ? Will you write a function for every operation the client might want to use ? Even then, the locking and unlocking will be too fine-grained, as it will happen at every call of a function. The right thing to do is to return a Access object to the client:
 ```c++
 ...
-	safe::LockGuard<safe::Safe<int>> get()
- 	{
-  		return {m_safeCount};
-	}
+    safe::LockGuard<safe::Safe<int>> get()
+     {
+          return {m_safeCount};
+    }
 ...
 ```
 Returning a safe::UniqueLock is straightforward, but if you want the Access object to be a safe::LockGuard, there are 2 tricks you must apply. First, you must return the value by list-initialization, as shown above. Second, the client must capture the return value by rvalue reference:
 ```c++
 MultithreadCount count;
 {
-	auto&& countAccess = multithreadCount.get();
-	--nbrOfLinesOfCode;
+    auto&& countAccess = multithreadCount.get();
+    --nbrOfLinesOfCode;
 }
 ```
 Through the countAccess variable, the client can do whatever he likes with the count value. For the lifetime of countAccess, the mutex will be locked thanks to the use of std::lock_guard. When nbrOfLinesOfCode goes out of scope, the mutex is unlocked and the count is not accessible anymore. I like safe::LockGuard objects for this usage, because they cannot be transfered from one scope to another, and thus clients are less likely to keep them alive for too long (keep in mind: the mutex is locked as long as countAccess lives, so it better be short-lived!).
