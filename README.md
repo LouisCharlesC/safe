@@ -31,7 +31,7 @@ safe::Safe<int> safeValue; // <-- value and mutex packaged together!
 * Safe object: combines a value object and a lockable object. Expose the value object through a simple and expressive interface.
 * Lock object: an object that manages a lockable object. Examples are std::lock_guard and std::unique_lock.
 * Access object: a Lock object that also gives pointer-like access to the value object.
-* Access mode: Access objects can be created with read-write or read-only behavior. Read-only Access objects are especially useful to enforce the read-only nature of std::shared_mutex (c++17) and std::shared_lock (c++14).
+* Access mode: Access objects can be created with read-write or read-only behavior. Read-only Access objects are especially useful to enforce the read-only nature of std::shared_mutex (C++17) and std::shared_lock (C++14).
 ## Main features:
 ### 1. Safety and clarity
 #### Get your code right
@@ -39,7 +39,7 @@ No more naked shared variables, no more locking the wrong mutex, no more mistake
 #### Hide those ugly details
 No more plain mutexes lying around, no more locks, no more mutable  (ever used a member mutex variable within a const-qualified member function ?).
 ### 2. Choose the lockable and lock that fit your need
-The Safe class is templated on the lockable object: use std::mutex, std::shared_mutex (c++17), name it!  
+The Safe class is templated on the lockable object: use std::mutex, std::shared_mutex (C++17), name it!  
 The Access class is templated on the lock object: use std::lock_guard, boost::shared_lock_guard, anything you want!
 ### 3. Store the value object/lockable object inside the Safe object, or refer to existing objects
 You can use any combination of reference and non-reference types for your Safe objects:
@@ -114,7 +114,7 @@ safe::Safe<int> safeValue;
 // auto value = safeValue.access(); // <-- does not compile!
 auto&& value = safeValue.access(); // notice the rvalue reference: auto&&
 ```
-This is totally safe, altough  slightly annoying. Note that with c++17 and later, it is no longer necessary to use the rvalue reference (if I am not mistaken!).
+This is totally safe, altough  slightly annoying. Note that with C++17 and later, it is no longer necessary to use the rvalue reference (if I am not mistaken!).
 ### Specifying the access mode
 The Access class has one template parameter for the lock type, and another one for the access mode. Likewise, templated overloads of the Safe::access() member function exist with a parameter for the lock type and one for the access mode. The AccessMode template parameter is an enum which can take two possible values: ReadOnly and ReadWrite. Here are examples of read-only Access objects:
 ```c++
@@ -138,7 +138,7 @@ struct LockTraits<std::shared_unique_lock>
 ```
 ## Advanced uase cases
 ### Using safe in templated code
-Writing templated code using safe reveals a little bit too much the true nature of c++ because the Access class and the access() member function have template parameters, and they are defined inside the Safe class template. It means that if you use safe in templated code (i.e. if you do not specify a value for all the template parameters of the Safe class template), you will need to use the following convoluted syntax (**notice the "::template " and ".template " syntax**):
+Writing templated code using safe reveals a little bit too much the true nature of C++ because the Access class and the access() member function have template parameters, and they are defined inside the Safe class template. It means that if you use safe in templated code (i.e. if you do not specify a value for all the template parameters of the Safe class template), you will need to use the following convoluted syntax (**notice the "::template " and ".template " syntax**):
 ```c++
 template <typename ValueType>
 class Example
@@ -180,7 +180,7 @@ When client code calls the increment() function, you lock the Safe object's mute
 		return {m_safeCount};
 	}
 ```
-**Notice the list-initialization in the return statement**. Pre-c++17, it is mandatory to use this syntax, again because Access\<std::lock_guard\> is non-copyable, non-moveable.
+**Notice the list-initialization in the return statement**. Pre-C++17, it is mandatory to use this syntax, again because Access\<std::lock_guard\> is non-copyable, non-moveable.
 
 With such an interface, the client has a lot of freedom and the guarantee of thread safety.
 ```c++
