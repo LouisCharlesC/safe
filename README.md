@@ -83,7 +83,7 @@ safe::Safe<int> safeValue;
 std::lock_guard<std::mutex> lock(mutex); // without safe
 safe::Safe<int>::Access<std::lock_guard> value(safeValue); // with safe
 ```
-Note that *safe* can seamlessly be used with std::condition_variable since the lock (std::unique_lock here) is a public member variable of Access:
+Note that *safe* can seamlessly be used with std::condition_variable since the lock (std::unique_lock here) is a public member variable of the Access class:
 ```c++
 std::condition_variable cv;
 safe::Safe<int> safeValue;
@@ -97,10 +97,14 @@ value = 42; // without safe
 ```
 ## Going a little bit deeper
 ### One-liners
-The Safe::access() member function returns an Access\<std::lock_guard\> object with read-write behavior. This allows you to write safe and compact one-liners.
+The Safe::access() member function returns an Access\<std::lock_guard\> object with read-write behavior. This allows you to write safe and compact one-liners:
 ```c++
 safe::Safe<std::vector<int>> safeVector;
+
+// First one-liner example: assign a new value to the vector
 *safeVector.access() = std::vector<int>(1, 2);
+
+// Another one-liner example: clear the vector
 safeVector.access()->clear();
 ```
 #### Capturing the return of Safe::access()
@@ -123,7 +127,8 @@ Here is the full declaration of the Access class:
 ```c++
 template<template<typename> class LockType, AccessMode ReadOrWrite=LockTraits<LockType>::DefaultAccessMode> class Access
 ```
-The AccessMode template parameter defines the access mode for the Access class. The AccessMode template parameter has a default value, and this default value is defined by a type trait of the LockType type. If no specialization of the type trait exists for LockType, the default access mode is ReadWrite. If a specialization exists, it must declare the DefaultAccessMode variable which determines the default access mode for the lock type. It is useful to specify a ReadOnly default access mode for shared locks like std::shared_unique_lock. Example:
+First, don't be daunted be the first template parameter, it only means that the LockType must be a class template with one template parameter (like std::lock_guard and std::unique_lock).  
+The ReadOrWrite template parameter defines the access mode for the Access class. The ReadOrWrite template parameter has a default value, and this default value is defined by a type trait of the LockType type. If no specialization of the type trait exists for LockType, the default access mode is ReadWrite. If a specialization exists, it must declare the DefaultAccessMode variable which determines the default access mode for the lock type. It is useful to specify a ReadOnly default access mode for shared locks like std::shared_unique_lock. Example:
 ```c++
 template<>
 struct LockTraits<std::shared_unique_lock>
