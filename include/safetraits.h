@@ -11,7 +11,7 @@
 
 namespace safe
 {
-	enum ReadOrWrite
+	enum class AccessMode
 	{
 		ReadOnly,
 		ReadWrite
@@ -20,13 +20,13 @@ namespace safe
 	template<template<typename> class LockType>
 	struct LockTraits
 	{
-		static constexpr ReadOrWrite DefaultAccessMode = ReadWrite;
+		static constexpr AccessMode DefaultAccessMode = AccessMode::ReadWrite;
 	};
 #if __cplusplus >= 201402L
 	template<>
-	struct LockTraits<std::shared_lock>
+	struct LockTraits<std::shared_unique_lock>
 	{
-		static constexpr ReadOrWrite DefaultAccessMode = ReadOnly;
+		static constexpr AccessMode DefaultAccessMode = AccessMode::ReadOnly;
 	};
 #endif // __cplusplus >= 201402L
 } // namespace safe
