@@ -5,13 +5,13 @@
  *      Author: lcc
  */
 
-#ifndef SAFE_H_
-#define SAFE_H_
+#pragma once
 
 #include "safetraits.h"
 
 #include <mutex>
 #include <type_traits>
+#include <utility>
 
 namespace safe
 {
@@ -61,7 +61,7 @@ namespace safe
 	 * @tparam ValueType The type of the value to protect.
 	 * @tparam LockableType The type of the lockable object.
 	 */
-	template<typename ValueType, typename LockableType = std::mutex>
+	template<typename ValueType, typename LockableType = std::mutex, template<typename> class DefaultReadOnlyLock = std::lock_guard>
 	class Safe
 	{
 	private:
@@ -81,9 +81,11 @@ namespace safe
 		 * value object, either AccessMode::ReadOnly or
 		 * AccessMode::ReadWrite.
 		 */
-		template<template<typename> class LockType, AccessMode ReadOrWrite=LockTraits<LockType>::DefaultAccessMode>
+		template<template<typename> class LockType = std::lock_guard, AccessMode ReadOrWrite = LockTraits<LockType>::IsReadOnly ? AccessMode::ReadOnly : AccessMode::ReadWrite>
 		class Access
 		{
+			static_assert(!(LockTraits<LockType>::IsReadOnly && ReadOrWrite==AccessMode::ReadWrite), "Cannot have ReadWrite access mode with ReadOnly lock. Check the value of LockTraits<LockType>::IsReadOnly if it exists.");
+
 		private:
 			/// ValueType with const qualifier if AccessMode is ReadOnly.
 			using ConstIfReadOnlyValueType = typename std::conditional<ReadOrWrite==AccessMode::ReadOnly, const RemoveRefValueType, RemoveRefValueType>::type;
@@ -113,7 +115,7 @@ namespace safe
 			 * the lock object.
 			 */
 			template<typename... OtherLockArgs>
-			Access(const Safe& safe, OtherLockArgs&&... otherLockArgs) noexcept(noexcept(LockType<RemoveRefLockableType>(safe.m_lockable.lockable, std::forward<OtherLockArgs>(otherLockArgs)...)));
+			Access(const Safe& safe, OtherLockArgs&&... otherLockArgs);
 
 			/**
 			 * @brief Construct an Access object from a Safe object, managing
@@ -129,7 +131,7 @@ namespace safe
 			 * @param otherLockArgs Perfect forwarding arguments to construct the lock object.
 			 */
 			template<typename... OtherLockArgs>
-			Access(Safe& safe, OtherLockArgs&&... otherLockArgs) noexcept(noexcept(LockType<RemoveRefLockableType>(safe.m_lockable.lockable, std::forward<OtherLockArgs>(otherLockArgs)...)));
+			Access(Safe& safe, OtherLockArgs&&... otherLockArgs);
 
 			/**
 			 * @brief Const accessor to the value.
@@ -213,33 +215,32 @@ namespace safe
 		 * @return Access<LockType, AccessMode::ReadOnly> The Access object
 		 * used to access the value object.
 		 */
-		template<template<typename> class LockType = std::lock_guard, typename... OtherLockArgs>
+		template<template<typename> class LockType=DefaultReadOnlyLock, typename... OtherLockArgs>
 		Access<LockType, AccessMode::ReadOnly> access(OtherLockArgs&&... otherLockArgs) const;
 
-	/**
-	 * @brief Create an Access object with read-or-write access mode
-	 * based on LockType's DefaultAccessMode trait (see safetraits.h).
-	 * 
-	 * If no specialization of safe::LockTraits exists for LockType, the
-	 * access is read-write. If such a specialization exists, the access
-	 * mode is defined by the DefaultAccessMode variable defined in the
-	 * specialization.
-	 * The lockable object from the safe object is already passed to
-	 * the lock object's constructor, you must not provide it. Only
-	 * provide additional constructor arguments.
-	 * 
-	 * @tparam LockType The type of the lock object that manages the
-	 * lockable object.
-	 * @tparam OtherLockArgs Perfect forwarding types to construct the
-	 * lock object.
-	 * @param otherLockArgs Perfect forwarding arguments to construct
-	 * the lock object.
-	 * @return Access<LockType, LockTraits<LockType>::DefaultAccessMode>
-	 * The Access object used to access the value object.
-	 */
-
-		template<template<typename> class LockType = std::lock_guard, typename... OtherLockArgs>
-		Access<LockType, LockTraits<LockType>::DefaultAccessMode> access(OtherLockArgs&&... otherLockArgs);
+		/**
+		 * @brief Create an Access object with read-or-write access mode
+		 * based on LockType's DefaultAccessMode trait (see safetraits.h).
+		 * 
+		 * If no specialization of safe::LockTraits exists for LockType, the
+		 * access is read-write. If such a specialization exists, the access
+		 * mode is defined by the DefaultAccessMode variable defined in the
+		 * specialization.
+		 * The lockable object from the safe object is already passed to
+		 * the lock object's constructor, you must not provide it. Only
+		 * provide additional constructor arguments.
+		 * 
+		 * @tparam LockType The type of the lock object that manages the
+		 * lockable object.
+		 * @tparam OtherLockArgs Perfect forwarding types to construct the
+		 * lock object.
+		 * @param otherLockArgs Perfect forwarding arguments to construct
+		 * the lock object.
+		 * @return Access<LockType, LockTraits<LockType>::DefaultAccessMode>
+		 * The Access object used to access the value object.
+		 */
+		template<template<typename> class LockType=std::lock_guard, typename... OtherLockArgs>
+		Access<LockType> access(OtherLockArgs&&... otherLockArgs);
 
 		/**
 		 * @brief Create an Access object.
@@ -248,11 +249,11 @@ namespace safe
 		 * the lock object's constructor, you must not provide it. Only
 		 * provide additional constructor arguments.
 		 * 
-		 * @tparam LockType The type of the lock object that manages the
-		 * lockable object.
 		 * @tparam ReadOrWrite Determines the constness of the access to the
 		 * value object, can be either AccessMode::ReadOnly or
 		 * AccessMode::ReadWrite.
+		 * @tparam LockType The type of the lock object that manages the
+		 * lockable object.
 		 * @tparam OtherLockArgs Perfect forwarding types to construct the
 		 * lock object.
 		 * @param otherLockArgs Perfect forwarding arguments to construct
@@ -260,7 +261,7 @@ namespace safe
 		 * @return Access<LockType, AccessMode> The Access object used to
 		 * access the value object.
 		 */
-		template<template<typename> class LockType, AccessMode ReadOrWrite, typename... OtherLockArgs>
+		template<AccessMode ReadOrWrite, template<typename> class LockType=std::lock_guard, typename... OtherLockArgs>
 		Access<LockType, ReadOrWrite> access(OtherLockArgs&&... otherLockArgs);
 
 		/**
@@ -299,5 +300,3 @@ namespace safe
 		ValueType m_value;
 	};
 }  // namespace safe
-
-#endif /* SAFE_H_ */

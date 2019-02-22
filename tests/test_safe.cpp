@@ -76,12 +76,12 @@ int value; // <-- do I need to lock a mutex to safely access this value ?
 void readmeWithSafeExample()
 {
 std::mutex frontEndMutex;
-safe::Safe<int> safeValue; // <-- value and mutex packaged together!
+safe::Safe<int> value; // <-- value and mutex packaged together!
 {
-	safe::Safe<int>::Access<std::lock_guard> value(safeValue); // <-- right mutex: guaranteed!
-	++*value; // access the value using pointer semantics: * and ->
+	safe::Safe<int>::Access<std::lock_guard> safeValue(value); // <-- right mutex: guaranteed!
+	++*safeValue; // access the value using pointer semantics: * and ->
 } // from here, you cannot directly access the value anymore: jolly good, since the mutex is not locked anymore!
---safeValue.unsafe(); // <-- unprotected access: clearly expressed!
+--value.unsafe(); // <-- unprotected access: clearly expressed!
 }
 
 void readmeDefaultConstructLockableTag()
@@ -112,7 +112,7 @@ safe::Safe<int>::Access<std::unique_lock> value(safeValue);
 cv.wait(value.lock);
 }
 
-void readmeOneLine()
+void readmeOneLiner()
 {
 safe::Safe<std::vector<int>> safeVector;
 *safeVector.access() = std::vector<int>(1, 2);
@@ -130,7 +130,7 @@ void readmeSpecifyingAccessMode()
 {
 safe::Safe<int> safeValue;
 safe::Safe<int>::Access<std::lock_guard, safe::AccessMode::ReadOnly> value(safeValue);
-auto&& sameValue = safeValue.access<std::lock_guard, safe::AccessMode::ReadOnly>();
+auto&& sameValue = safeValue.access<safe::AccessMode::ReadOnly>();
 }
 
 template <typename ValueType>
@@ -141,11 +141,11 @@ public:
 
 	void exampleAccessType()
 	{
-		typename safe::Safe<ValueType>::template Access<std::lock_guard> value(m_safeValue);
+		typename safe::Safe<ValueType>::template Access<std::unique_lock> value(m_safeValue);
 	}
 	void exampleAccessMemberFunction()
 	{
-		auto&& value = m_safeValue.template access<std::lock_guard>();
+		auto value = m_safeValue.template access<std::unique_lock>();
 	}
 };
 
@@ -290,63 +290,3 @@ TEST_F(AccessTest, ReturnTypes) {
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::AccessMode::ReadOnly>::ConstReferenceType, const int&>::value, "");
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::AccessMode::ReadOnly>::ReferenceType, const int&>::value, "");
 }
-// TEST_F(AccessTest, StdUniqueLockReadOnlyAccessToGuardLockReadOnlyAccess) {
-// 	SafeLockableRefValueRefType safe(lockable, value);
-	
-// 	{
-// 		testing::InSequence _;
-// 		EXPECT_CALL(lockable, lock());
-// 		EXPECT_CALL(lockable, touch());
-// 		EXPECT_CALL(lockable, unlock());
-// 		EXPECT_CALL(lockable, touch());
-// 	}
-
-// 	{
-// 		SafeLockableRefValueRefType::Access<std::unique_lock, safe::ReadOnly> uniqueLockAccess(safe);
-// 		{
-// 			lockable.touch();
-// 			SafeLockableRefValueRefType::Access<std::lock_guard, safe::ReadOnly> lockGuardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
-// 		}
-// 		lockable.touch();
-// 	}
-// }
-// TEST_F(AccessTest, StdUniqueLockAccessToGuardLockReadOnlyAccess) {
-// 	SafeLockableRefValueRefType safe(lockable, value);
-	
-// 	{
-// 		testing::InSequence _;
-// 		EXPECT_CALL(lockable, lock());
-// 		EXPECT_CALL(lockable, touch());
-// 		EXPECT_CALL(lockable, unlock());
-// 		EXPECT_CALL(lockable, touch());
-// 	}
-
-// 	{
-// 		SafeLockableRefValueRefType::Access<std::unique_lock> uniqueLockAccess(safe);
-// 		{
-// 			lockable.touch();
-// 			SafeLockableRefValueRefType::Access<std::lock_guard, safe::ReadOnly> lockGuardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
-// 		}
-// 		lockable.touch();
-// 	}
-// }
-// TEST_F(AccessTest, StdUniqueLockAccessToGuardLockAccess) {
-// 	SafeLockableRefValueRefType safe(lockable, value);
-	
-// 	{
-// 		testing::InSequence _;
-// 		EXPECT_CALL(lockable, lock());
-// 		EXPECT_CALL(lockable, touch());
-// 		EXPECT_CALL(lockable, unlock());
-// 		EXPECT_CALL(lockable, touch());
-// 	}
-
-// 	{
-// 		SafeLockableRefValueRefType::Access<std::unique_lock> uniqueLockAccess(safe);
-// 		{
-// 			lockable.touch();
-// 			SafeLockableRefValueRefType::Access<std::lock_guard> lockGuardAccess(*uniqueLockAccess, *uniqueLockAccess.lock.release(), std::adopt_lock);
-// 		}
-// 		lockable.touch();
-// 	}
-// }

@@ -9,6 +9,13 @@
  * 
  */
 
+#pragma once
+
+#include "mutex"
+#if __cplusplus >= 201402L
+#include "shared_mutex"
+#endif // __cplusplus >= 201402L
+
 namespace safe
 {
 	enum class AccessMode
@@ -20,13 +27,23 @@ namespace safe
 	template<template<typename> class LockType>
 	struct LockTraits
 	{
-		static constexpr AccessMode DefaultAccessMode = AccessMode::ReadWrite;
+		static constexpr bool IsReadOnly = false;
+	};
+	template<>
+	struct LockTraits<std::lock_guard>
+	{
+		static constexpr bool IsReadOnly = false;
+	};
+	template<>
+	struct LockTraits<std::unique_lock>
+	{
+		static constexpr bool IsReadOnly = false;
 	};
 #if __cplusplus >= 201402L
 	template<>
-	struct LockTraits<std::shared_unique_lock>
+	struct LockTraits<std::shared_lock>
 	{
-		static constexpr AccessMode DefaultAccessMode = AccessMode::ReadOnly;
+		static constexpr bool IsReadOnly = true;
 	};
 #endif // __cplusplus >= 201402L
 } // namespace safe
