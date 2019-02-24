@@ -1,4 +1,4 @@
-# Make your multi-thread code safe and crystal clear!
+# Every variable shared by multiple thread should be wrapped in a Safe object
 ## Overview
 *safe* is a header-only library that helps you get your multi-threaded code safe and understandable. It defines the Safe and Access classes. A Safe object packs a lockable object (e.g. std::mutex) and a value object (whatever you need to protect using the lockable object). Safe objects expose the value object through a simple, clear and safe interface: use the access() member function set to gain protected access to the value, and use the unsafe() function set for unprotected access. Protected access is achieved through the Access class. Think of the Access class as a combination of a lock (e.g. std::lock_guard) and a pointer to the value object. The lock gives you the full power of RAII for managing the lockable object, and the pointer-like functionality only exists for the span of time where the lockable object is locked.
 
