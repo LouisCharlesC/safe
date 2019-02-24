@@ -60,6 +60,9 @@ namespace safe
 	 * 
 	 * @tparam ValueType The type of the value to protect.
 	 * @tparam LockableType The type of the lockable object.
+	 * @tparam DefaultReadOnlyLock The lock type to use as default
+	 * template argument when creating Access objects from a const Safe
+	 * object. Make this a shared lock if you can.
 	 */
 	template<typename ValueType, typename LockableType = std::mutex, template<typename> class DefaultReadOnlyLock = std::lock_guard>
 	class Safe
@@ -77,58 +80,61 @@ namespace safe
 		 * 
 		 * @tparam LockType The type of the lock object that manages the
 		 * lockable object, example: std::lock_guard.
-		 * @tparam ReadOrWrite Determines the constness of the access to the
-		 * value object, either AccessMode::ReadOnly or
-		 * AccessMode::ReadWrite.
+		 * @tparam AccessMode Determines the access mode of the Access
+		 * object. Can be either eAccessModes::ReadOnly or
+		 * eAccessModes::ReadWrite. Default value depends on LockType's
+		 * IsReadOnly trait (see safetraits.h). If no specialization of
+		 * safe::LockTraits exists for LockType, the access is ReadWrite.
+		 * If such a specialization exists, the access mode depends on the
+		 * IsReadOnly variable defined in the specialization. If IsReadOnly
+		 * is true, access mode is ReadOnly, otherwise, it is ReadWrite.
 		 */
-		template<template<typename> class LockType = std::lock_guard, AccessMode ReadOrWrite = LockTraits<LockType>::IsReadOnly ? AccessMode::ReadOnly : AccessMode::ReadWrite>
+		template<template<typename> class LockType = std::lock_guard, eAccessModes AccessMode = LockTraits<LockType>::IsReadOnly ? eAccessModes::ReadOnly : eAccessModes::ReadWrite>
 		class Access
 		{
-			static_assert(!(LockTraits<LockType>::IsReadOnly && ReadOrWrite==AccessMode::ReadWrite), "Cannot have ReadWrite access mode with ReadOnly lock. Check the value of LockTraits<LockType>::IsReadOnly if it exists.");
+			static_assert(!(LockTraits<LockType>::IsReadOnly && AccessMode==eAccessModes::ReadWrite), "Cannot have ReadWrite access mode with ReadOnly lock. Check the value of LockTraits<LockType>::IsReadOnly if it exists.");
 
 		private:
-			/// ValueType with const qualifier if AccessMode is ReadOnly.
-			using ConstIfReadOnlyValueType = typename std::conditional<ReadOrWrite==AccessMode::ReadOnly, const RemoveRefValueType, RemoveRefValueType>::type;
+			/// ValueType with const qualifier if eAccessModes is ReadOnly.
+			using ConstIfReadOnlyValueType = typename std::conditional<AccessMode==eAccessModes::ReadOnly, const RemoveRefValueType, RemoveRefValueType>::type;
 
 		public:
 			/// Pointer-to-const ValueType
 			using ConstPointerType = const ConstIfReadOnlyValueType*;
-			/// Pointer-to-const ValueType if ReadOrWrite is ReadOnly, pointer to ValueType otherwise.
+			/// Pointer-to-const ValueType if AccessMode is ReadOnly, pointer to ValueType otherwise.
 			using PointerType = ConstIfReadOnlyValueType*;
 			/// Reference-to-const ValueType
 			using ConstReferenceType = const ConstIfReadOnlyValueType&;
-			/// Reference-to-const ValueType if ReadOrWrite is ReadOnly, reference to ValueType otherwise.
+			/// Reference-to-const ValueType if AccessMode is ReadOnly, reference to ValueType otherwise.
 			using ReferenceType = ConstIfReadOnlyValueType&;
 
 			/**
-			 * @brief Construct an Access object from a const Safe object,
-			 * managing its lockable object and exposing its value object.
+			 * @brief Construct an Access object from a const Safe object.
 			 * 
-			 * The lockable object from the safe object is already passed to
-			 * the lock object's constructor, you must not provide it. Only
-			 * provide additional constructor arguments.
+			 * If needed, you can provide additionnal arguments to construct
+			 * the lock object (such as std::adopt_lock). The lockable object
+			 * from the safe object is already passed to the lock object's
+			 * constructor though, you must not provide it.
 			 * 
-			 * @tparam OtherLockArgs Perfect forwarding types to construct
-			 * the lock object.
-			 * @param safe The safe object to manage.
-			 * @param otherLockArgs Perfect forwarding arguments to construct
-			 * the lock object.
+			 * @tparam OtherLockArgs Deduced from otherLockArgs.
+			 * @param safe The Safe object to give protected access to.
+			 * @param otherLockArgs Other arguments needed to construct the
+			 * lock object.
 			 */
 			template<typename... OtherLockArgs>
 			Access(const Safe& safe, OtherLockArgs&&... otherLockArgs);
-
 			/**
-			 * @brief Construct an Access object from a Safe object, managing
-			 * its lockable object and exposing its value object.
+			 * @brief Construct an Access object from a Safe object.
 			 * 
-			 * The lockable object from the safe object is already passed to
-			 * the lock object's constructor, you must not provide it. Only
-			 * provide additional constructor arguments.
+			 * If needed, you can provide additionnal arguments to construct
+			 * the lock object (such as std::adopt_lock). The lockable object
+			 * from the safe object is already passed to the lock object's
+			 * constructor though, you must not provide it.
 			 * 
-			 * @tparam OtherLockArgs Perfect forwarding types to construct
-			 * the lock object other than the lockable object.
-			 * @param safe The safe object to manage.
-			 * @param otherLockArgs Perfect forwarding arguments to construct the lock object.
+			 * @tparam OtherLockArgs Deduced from otherLockArgs.
+			 * @param safe The Safe object to give protected access to.
+			 * @param otherLockArgs Other arguments needed to construct the
+			 * lock object.
 			 */
 			template<typename... OtherLockArgs>
 			Access(Safe& safe, OtherLockArgs&&... otherLockArgs);
@@ -185,7 +191,7 @@ namespace safe
 		 * @param valueArgs Perfect forwarding arguments to construct the value object.
 		 */
 		template<typename... ValueArgs>
-		Safe(default_construct_lockable_t, ValueArgs&&... valueArgs);
+		explicit Safe(default_construct_lockable_t, ValueArgs&&... valueArgs);
 		/**
 		 * @brief Construct a Safe object, perfect forwarding the first
 		 * argument to construct the lockable object and perfect forwarding
@@ -197,72 +203,75 @@ namespace safe
 		 * @param valueArgs Perfect forwarding arguments to construct the value object.
 		 */
 		template<typename LockableArg, typename... ValueArgs>
-		Safe(LockableArg&& lockableArg, ValueArgs&&... valueArgs);
+		explicit Safe(LockableArg&& lockableArg, ValueArgs&&... valueArgs);
 
 		/**
 		 * @brief Create an Access object with read-only access mode.
 		 *
-		 * The lockable object from the safe object is already passed to
-		 * the lock object's constructor, you must not provide it. Only
-		 * provide additional constructor arguments.
+		 * By default, the lock type is the DefaultReadOnlyLock type
+		 * provided as template argument to the Safe class.
+		 * If needed, you can provide additionnal arguments to construct
+		 * the lock object (such as std::adopt_lock). The lockable object
+		 * from the safe object is already passed to the lock object's
+		 * constructor though, you must not provide it.
 		 * 
 		 * @tparam LockType The type of the lock object that manages the
 		 * lockable object.
-		 * @tparam OtherLockArgs Perfect forwarding types to construct the
+		 * @tparam OtherLockArgs Deduced from otherLockArgs.
+		 * @param otherLockArgs Other arguments needed to construct the
 		 * lock object.
-		 * @param otherLockArgs Perfect forwarding arguments to construct
-		 * the lock object.
-		 * @return Access<LockType, AccessMode::ReadOnly> The Access object
-		 * used to access the value object.
+		 * @return Access<LockType, eAccessModes::ReadOnly> The Access
+		 * object.
 		 */
 		template<template<typename> class LockType=DefaultReadOnlyLock, typename... OtherLockArgs>
-		Access<LockType, AccessMode::ReadOnly> access(OtherLockArgs&&... otherLockArgs) const;
+		Access<LockType, eAccessModes::ReadOnly> access(OtherLockArgs&&... otherLockArgs) const;
 
 		/**
-		 * @brief Create an Access object with read-or-write access mode
-		 * based on LockType's DefaultAccessMode trait (see safetraits.h).
+		 * @brief Create an Access object with access mode based on
+		 * LockType's IsReadOnly trait (see safetraits.h).
 		 * 
 		 * If no specialization of safe::LockTraits exists for LockType, the
-		 * access is read-write. If such a specialization exists, the access
-		 * mode is defined by the DefaultAccessMode variable defined in the
-		 * specialization.
-		 * The lockable object from the safe object is already passed to
-		 * the lock object's constructor, you must not provide it. Only
-		 * provide additional constructor arguments.
+		 * access is ReadWrite. If such a specialization exists, the access
+		 * mode depends on the IsReadOnly variable defined in the
+		 * specialization. If IsReadOnly is true, access mode is ReadOnly,
+		 * otherwise, it is ReadWrite.
+		 * If needed, you can provide additionnal arguments to construct
+		 * the lock object (such as std::adopt_lock). The lockable object
+		 * from the safe object is already passed to the lock object's
+		 * constructor though, you must not provide it.
 		 * 
 		 * @tparam LockType The type of the lock object that manages the
 		 * lockable object.
-		 * @tparam OtherLockArgs Perfect forwarding types to construct the
+		 * @tparam OtherLockArgs Deduced from otherLockArgs.
+		 * @param otherLockArgs Other arguments needed to construct the
 		 * lock object.
-		 * @param otherLockArgs Perfect forwarding arguments to construct
-		 * the lock object.
-		 * @return Access<LockType, LockTraits<LockType>::DefaultAccessMode>
-		 * The Access object used to access the value object.
+		 * @return Access<LockType> The Access object.
 		 */
 		template<template<typename> class LockType=std::lock_guard, typename... OtherLockArgs>
 		Access<LockType> access(OtherLockArgs&&... otherLockArgs);
 
 		/**
-		 * @brief Create an Access object.
+		 * @brief Create an Access object with the specified access mode.
 		 * 
-		 * The lockable object from the safe object is already passed to
-		 * the lock object's constructor, you must not provide it. Only
-		 * provide additional constructor arguments.
+		 * If needed, you can provide additionnal arguments to construct
+		 * the lock object (such as std::adopt_lock). The lockable object
+		 * from the safe object is already passed to the lock object's
+		 * constructor though, you must not provide it.
 		 * 
-		 * @tparam ReadOrWrite Determines the constness of the access to the
-		 * value object, can be either AccessMode::ReadOnly or
-		 * AccessMode::ReadWrite.
+		 * @tparam AccessMode Determines the access mode of the Access
+		 * object. Can be either eAccessModes::ReadOnly or
+		 * eAccessModes::ReadWrite.
 		 * @tparam LockType The type of the lock object that manages the
 		 * lockable object.
-		 * @tparam OtherLockArgs Perfect forwarding types to construct the
+		 * @tparam OtherLockArgs Deduced from otherLockArgs.
+		 * @param otherLockArgs Other arguments needed to construct the
 		 * lock object.
-		 * @param otherLockArgs Perfect forwarding arguments to construct
-		 * the lock object.
-		 * @return Access<LockType, AccessMode> The Access object used to
-		 * access the value object.
+		 * @return Access<LockType, AccessMode> The Access object.
 		 */
-		template<AccessMode ReadOrWrite, template<typename> class LockType=std::lock_guard, typename... OtherLockArgs>
-		Access<LockType, ReadOrWrite> access(OtherLockArgs&&... otherLockArgs);
+		template<eAccessModes AccessMode, typename... OtherLockArgs>
+		Access<std::lock_guard, AccessMode> access(OtherLockArgs&&... otherLockArgs);
+		template<template<typename> class LockType, eAccessModes AccessMode, typename... OtherLockArgs>
+		Access<LockType, AccessMode> access(OtherLockArgs&&... otherLockArgs);
 
 		/**
 		 * @brief Unsafe const accessor to the value.

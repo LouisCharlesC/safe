@@ -45,9 +45,9 @@ public:
 	using SafeLockableValueRefType = safe::Safe<int&, DummyLockable>;
 	using SafeLockableValueType = safe::Safe<int, DummyLockable>;
 
-	using SafeLockableRefValueRefReadOnlyAccessType = SafeLockableRefValueRefType::Access<DummyLock, safe::AccessMode::ReadOnly>;
+	using SafeLockableRefValueRefReadOnlyAccessType = SafeLockableRefValueRefType::Access<DummyLock, safe::eAccessModes::ReadOnly>;
 	using SafeLockableRefValueRefReadWriteAccessType = SafeLockableRefValueRefType::Access<DummyLock>;
-	using SafeLockableValueReadOnlyAccessType = SafeLockableValueType::Access<DummyLock, safe::AccessMode::ReadOnly>;
+	using SafeLockableValueReadOnlyAccessType = SafeLockableValueType::Access<DummyLock, safe::eAccessModes::ReadOnly>;
 	using SafeLockableValueReadWriteAccessType = SafeLockableValueType::Access<DummyLock>;
 
 	SafeTest():
@@ -78,9 +78,12 @@ void readmeWithSafeExample()
 std::mutex frontEndMutex;
 safe::Safe<int> value; // <-- value and mutex packaged together!
 {
-	safe::Safe<int>::Access<std::lock_guard> safeValue(value); // <-- right mutex: guaranteed!
+	auto&& safeValue = value.access(); // <-- right mutex: guaranteed!
+	//  ^^ do not mind the rvalue reference, I will explain its presence later on.
+
 	++*safeValue; // access the value using pointer semantics: * and ->
 } // from here, you cannot directly access the value anymore: jolly good, since the mutex is not locked anymore!
+
 --value.unsafe(); // <-- unprotected access: clearly expressed!
 }
 
@@ -94,95 +97,132 @@ safe::Safe<int, std::mutex&> valueDefault(aMutex); // lockable is initialized, a
 safe::Safe<int, std::mutex> lockableDefault(safe::default_construct_lockable, 42); // lockable is default constructed, and value is initialized
 }
 
-void readmeBasic()
+void readmeFlexiblyConstructLock()
 {
-// with safe
-safe::Safe<int> safeValue;
-// ---
-safe::Safe<int>::Access<std::lock_guard> value(safeValue); // with safe
-// ---
-*value = 42; // with safe
+safe::Safe<int> value;
+value.lockable().lock();
+{
+	safe::Safe<int>::Access<> safeValue(value, std::adopt_lock);
+}
+{
+	auto&& safeValue = value.access(std::adopt_lock);
+}
+}
+
+void readmeLegacy()
+{
+// Unsafe code below!
+std::mutex mutex;
+int value;
+// End of usafe code!
+// Safe code from here on
+safe::Safe<int&, std::mutex&> safeValue(mutex, value);
+// Forget about mutex and value, only use safeValue
 }
 
 void readmeConditionVariable()
 {
 std::condition_variable cv;
-safe::Safe<int> safeValue;
-safe::Safe<int>::Access<std::unique_lock> value(safeValue);
-cv.wait(value.lock);
+safe::Safe<int> value;
+auto safeValue = value.access<std::unique_lock>();
+cv.wait(safeValue.lock);
+}
+
+void readmeBasicWithoutSafe()
+{
+std::mutex mutex;
+int value;
+std::lock_guard<std::mutex> lock(mutex);
+value = 42;
+}
+
+void readmeBasicWithSafe()
+{
+safe::Safe<int> value;
+auto&& safeValue = value.access();
+*safeValue = 42;
+}
+
+void readmeRValueReferenceExplained()
+{
+safe::Safe<int> value;
+// auto safeValue = value.access(); // <-- does not compile!
+auto&& safeValueLockGuard = value.access(); // need rvalue reference
+auto safeValueUniqueLock = value.access<std::unique_lock>(); // no rvalue reference needed
 }
 
 void readmeOneLiner()
 {
-safe::Safe<std::vector<int>> safeVector;
-*safeVector.access() = std::vector<int>(1, 2);
-safeVector.access()->clear();
-}
+safe::Safe<std::vector<int>> vector;
 
-void readmeCapturingAccess()
-{
-safe::Safe<int> safeValue;
-// auto value = safeValue.access(); // <-- does not compile!
-auto&& value = safeValue.access(); // notice the rvalue reference: auto&&
+// One-liner example: assign a new value to the vector
+*vector.access() = std::vector<int>(1, 2);
+
+// Another one-liner example: clear the vector
+vector.access()->clear();
 }
 
 void readmeSpecifyingAccessMode()
 {
 safe::Safe<int> safeValue;
-safe::Safe<int>::Access<std::lock_guard, safe::AccessMode::ReadOnly> value(safeValue);
-auto&& sameValue = safeValue.access<safe::AccessMode::ReadOnly>();
+safe::Safe<int>::Access<std::lock_guard, safe::eAccessModes::ReadOnly> value(safeValue);
+auto&& sameValue = safeValue.access<safe::eAccessModes::ReadOnly>();
 }
 
 template <typename ValueType>
-class Example
+class ClassTemplateExample
 {
 public:
-	safe::Safe<ValueType> m_safeValue;
 
-	void exampleAccessType()
+	void accessMemberFunction()
 	{
-		typename safe::Safe<ValueType>::template Access<std::unique_lock> value(m_safeValue);
+		auto&& safeValue = m_value.template access<std::lock_guard>();
 	}
-	void exampleAccessMemberFunction()
+	void accessClass()
 	{
-		auto value = m_safeValue.template access<std::unique_lock>();
+		typename safe::Safe<ValueType>::template Access<> safeValue(m_value);
+		//																						 ^^
+		// Access<> is the syntax to use the default parameters of the class template.
 	}
+private:
+	safe::Safe<ValueType> m_value;
 };
 
 void readmeSafeInTemplatedCode()
 {
-	Example<int> example;
-	example.exampleAccessType();
-	example.exampleAccessMemberFunction();
+	ClassTemplateExample<int> example;
+	example.accessMemberFunction();
+	example.accessClass();
 }
 
 void readmeReturnStdLockGuard()
 {
-class MultithreadCount
+class MultithreadedCount
 {
 public:
 	void increment()
 	{
-		++*m_safeCount.access();
+		++*m_count.access();
 	}
 
-	safe::Safe<int>::Access<std::lock_guard> get()
+	safe::Safe<int>::Access<> get() // Access<> defaults to std::lock_guard and ReadWrite template parameters
 	{
-		return {m_safeCount};
+		return {m_count};
 	}
 
 private:
-	safe::Safe<int> m_safeCount;
+	safe::Safe<int> m_count;
 };
 
-MultithreadCount count;
-count.increment(); // thread safety managed inside the function call, efficient but limited
+MultithreadedCount count;
+count.increment(); // thread safety managed inside the function call, simple but limited
 {
-	auto&& countAccess = count.get(); // capture the Access<std::lock_guard> object by rvalue reference
-	// do anything you like with the count variable, the mutex is locked once, and the MultithreadCount does not have foresee and implement all the operation you will perform of the variable.
-	*countAccess = 43; 
-	--*countAccess;
-} // unlock the mutex when you are done
+	// thread safety managed by the access variable, efficient and flexible!
+	auto&& safeCount = count.get(); // capture the Access<std::lock_guard> object by rvalue reference
+	// do anything you like with the variable!
+	*safeCount = 43; 
+	--*safeCount;
+} // mutex automatically unlocked when scope is exited
 }
 
 TEST_F(SafeTest, LockableRefValueRefConstructor) {
@@ -275,18 +315,18 @@ TEST_F(AccessTest, ReturnTypes) {
 	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock>::ConstReferenceType, const int&>::value, "");
 	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock>::ReferenceType, int&>::value, "");
 
-	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::AccessMode::ReadOnly>::ConstPointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::AccessMode::ReadOnly>::PointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::AccessMode::ReadOnly>::ConstReferenceType, const int&>::value, "");
-	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::AccessMode::ReadOnly>::ReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::eAccessModes::ReadOnly>::ConstPointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::eAccessModes::ReadOnly>::PointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::eAccessModes::ReadOnly>::ConstReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::eAccessModes::ReadOnly>::ReferenceType, const int&>::value, "");
 
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::ConstPointerType, const int*>::value, "");
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::PointerType, int*>::value, "");
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::ConstReferenceType, const int&>::value, "");
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::ReferenceType, int&>::value, "");
 
-	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::AccessMode::ReadOnly>::ConstPointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::AccessMode::ReadOnly>::PointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::AccessMode::ReadOnly>::ConstReferenceType, const int&>::value, "");
-	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::AccessMode::ReadOnly>::ReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::eAccessModes::ReadOnly>::ConstPointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::eAccessModes::ReadOnly>::PointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::eAccessModes::ReadOnly>::ConstReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::eAccessModes::ReadOnly>::ReferenceType, const int&>::value, "");
 }
