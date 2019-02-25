@@ -188,7 +188,7 @@ public:
 	}
 };
 ```
-### Returning an Access<std::lock_guard> object
+### Returning an Access\<std::lock_guard\> object
 Most of the time when you use safe, you will have a Safe object as a private member variable of your class and use it to access its value object in a safe way. Example:
 ```c++
 #include "safe.hpp"
