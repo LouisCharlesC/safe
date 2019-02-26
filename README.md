@@ -133,7 +133,7 @@ Once you construct a Safe object, you fix the type of the lockable object you wi
 Shared mutex and shared locks allow multiple reading threads to access the value object simultaneously. Unfortunately, using only mutexes and locks, the read-only restriction is not guaranteed to be applied. That is, it is easy to create a situation where a thread locks a mutex in shared mode and writes to the shared value. With safe, you can enforce read-only access when using shared locking.
 ### 4. Compatibility
 #### With legacy code
-You can use *safe* with old-style unsafe code that use the out-of-fashion separate mutex and value idiom. Imagine you are provided with the typical mutex and int. *safe* allows you to wrap these existing variables, without touching the legacy code. Enjoy the safety and avoid the headaches:
+You can use *safe* with old-style unsafe code that use the out-of-fashion separate mutex and value idiom. Imagine you are provided with the typical mutex and int. *safe* allows you to wrap these variables, without have to modify the existing code. Enjoy the safety and avoid the headaches:
 ```c++
 std::mutex mutex;
 int unsafeValue;
