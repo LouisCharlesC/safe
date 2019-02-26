@@ -1,17 +1,18 @@
 # Make your multi-thread code safe and crystal clear!
 *Every variable shared by multiple threads should be wrapped in a Safe object.*
 ## Contents
-*safe* is a header-only library that helps you get your multi-threaded code safe and understandable. This readme explains the library through several code examples. The first sections provide basic usage examples. The later sections explain how *safe* can be used in more complex and unexpected scenarios. Enjoy safe multi-threading!
+*safe* is a header-only library that helps you get your multi-threaded code safe and understandable.  
+This readme will walk you through the important features of the library using several code examples. Read on, and enjoy safe multi-threading!
 - [Overview](#Overview)
 - [Basic usage](#Basic-usage)
 - [Main features](#Main-features)
 - [Going a little bit deeper](#Going-a-little-bit-deeper)
 - [Advanced use cases](#Advanced-use-cases)
 ## Overview
-*safe* defines the Safe and Access class templates.  
-A Safe object packs a lockable object (e.g. std::mutex) and a value object (whatever you need to protect using the lockable object). Safe objects expose the value object through a simple and expressive interface: 
-- use the access() member functions to gain protected access to the value.
-- use the unsafe() member functions for unprotected access.
+*safe* is very lightweight: it defines the Safe and Access class templates. Both class templates have a very simple public interface.  
+Safe objects pack a lockable object (e.g. std::mutex) and a value object (whatever you need to protect using the lockable object). The value object is exposed through a simple and expressive interface: 
+- the access() member function grants protected access to the value (it locks the lockable for the duration of the access).
+- the unsafe() member function gives unprotected access.
 
 Protected access is achieved through the Access class template. Think of Access objects as a combination of a lock (e.g. std::lock_guard) and a pointer to the value object. The lock gives you the full power of RAII for managing the lockable object, and the pointer-like functionality only exists for the span of time where the lockable object is locked.
 
