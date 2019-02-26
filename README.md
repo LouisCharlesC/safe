@@ -2,11 +2,11 @@
 *safe* is a header-only library that helps you get your multi-threaded code safe and understandable.  
 *Every variable shared by multiple threads should be wrapped in a Safe object.*
 ## Contents
-- [Overview](##Overview)
-- [Basic usage](##Basic-usage)
-- [Main features](##Main-features)
-- [Going a little bit deeper](##Going-a-little-bit-deeper)
-- [Advanced use cases](##Advanced-use-cases)
+- [Overview](#Overview)
+- [Basic usage](#Basic-usage)
+- [Main features](#Main-features)
+- [Going a little bit deeper](#Going-a-little-bit-deeper)
+- [Advanced use cases](#Advanced-use-cases)
 ## Overview
 *safe* defines the Safe and Access class tempplates.  
 A Safe object packs a lockable object (e.g. std::mutex) and a value object (whatever you need to protect using the lockable object). Safe objects expose the value object through a simple and expressive interface: 
