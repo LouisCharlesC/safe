@@ -18,7 +18,7 @@
 
 namespace safe
 {
-	enum class eAccessModes
+	enum class AccessMode
 	{
 		ReadOnly,
 		ReadWrite

@@ -45,9 +45,9 @@ public:
 	using SafeLockableValueRefType = safe::Safe<int&, DummyLockable>;
 	using SafeLockableValueType = safe::Safe<int, DummyLockable>;
 
-	using SafeLockableRefValueRefReadOnlyAccessType = SafeLockableRefValueRefType::Access<DummyLock, safe::eAccessModes::ReadOnly>;
+	using SafeLockableRefValueRefReadOnlyAccessType = SafeLockableRefValueRefType::Access<DummyLock, safe::AccessMode::ReadOnly>;
 	using SafeLockableRefValueRefReadWriteAccessType = SafeLockableRefValueRefType::Access<DummyLock>;
-	using SafeLockableValueReadOnlyAccessType = SafeLockableValueType::Access<DummyLock, safe::eAccessModes::ReadOnly>;
+	using SafeLockableValueReadOnlyAccessType = SafeLockableValueType::Access<DummyLock, safe::AccessMode::ReadOnly>;
 	using SafeLockableValueReadWriteAccessType = SafeLockableValueType::Access<DummyLock>;
 
 	SafeTest():
@@ -94,7 +94,8 @@ std::mutex aMutex;
 safe::Safe<int, std::mutex> bothDefault; // lockable and value are default constructed
 safe::Safe<int, std::mutex&> noDefault(aMutex, 42); // lockable and value are initialized
 safe::Safe<int, std::mutex&> valueDefault(aMutex); // lockable is initialized, and value is default constructed
-safe::Safe<int, std::mutex> lockableDefault(safe::default_construct_lockable, 42); // lockable is default constructed, and value is initialized
+safe::Safe<int, std::mutex> lockableDefaultTag(safe::default_construct_lockable, 42); // lockable is default constructed, and value is initialized
+safe::Safe<int, std::mutex> lockableDefaultBraces({}, 42);
 }
 
 void readmeFlexiblyConstructLock()
@@ -165,8 +166,8 @@ vector.access()->clear();
 void readmeSpecifyingAccessMode()
 {
 safe::Safe<int> safeValue;
-safe::Safe<int>::Access<std::lock_guard, safe::eAccessModes::ReadOnly> value(safeValue);
-auto&& sameValue = safeValue.access<safe::eAccessModes::ReadOnly>();
+safe::Safe<int>::Access<std::lock_guard, safe::AccessMode::ReadOnly> value(safeValue);
+auto&& sameValue = safeValue.access<safe::AccessMode::ReadOnly>();
 }
 
 template <typename ValueType>
@@ -315,18 +316,18 @@ TEST_F(AccessTest, ReturnTypes) {
 	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock>::ConstReferenceType, const int&>::value, "");
 	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock>::ReferenceType, int&>::value, "");
 
-	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::eAccessModes::ReadOnly>::ConstPointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::eAccessModes::ReadOnly>::PointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::eAccessModes::ReadOnly>::ConstReferenceType, const int&>::value, "");
-	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::eAccessModes::ReadOnly>::ReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::AccessMode::ReadOnly>::ConstPointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::AccessMode::ReadOnly>::PointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::AccessMode::ReadOnly>::ConstReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableRefValueRefType::Access<DummyLock, safe::AccessMode::ReadOnly>::ReferenceType, const int&>::value, "");
 
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::ConstPointerType, const int*>::value, "");
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::PointerType, int*>::value, "");
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::ConstReferenceType, const int&>::value, "");
 	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock>::ReferenceType, int&>::value, "");
 
-	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::eAccessModes::ReadOnly>::ConstPointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::eAccessModes::ReadOnly>::PointerType, const int*>::value, "");
-	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::eAccessModes::ReadOnly>::ConstReferenceType, const int&>::value, "");
-	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::eAccessModes::ReadOnly>::ReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::AccessMode::ReadOnly>::ConstPointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::AccessMode::ReadOnly>::PointerType, const int*>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::AccessMode::ReadOnly>::ConstReferenceType, const int&>::value, "");
+	static_assert(std::is_same<SafeLockableValueType::Access<DummyLock, safe::AccessMode::ReadOnly>::ReferenceType, const int&>::value, "");
 }

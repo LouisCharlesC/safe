@@ -173,23 +173,23 @@ The AccessMode template parameter is an enum which can take two possible values:
 Here are examples of read-only Access objects:
 ```c++
 safe::Safe<int> safeValue;
-safe::Safe<int>::Access<std::lock_guard, safe::eAccessModes::ReadOnly> value(safeValue);
-auto&& sameValue = safeValue.access<safe::eAccessModes::ReadOnly>();
+safe::Safe<int>::Access<std::lock_guard, safe::AccessMode::ReadOnly> value(safeValue);
+auto&& sameValue = safeValue.access<safe::AccessMode::ReadOnly>();
 ```
 ## Advanced use cases
 ### Specifying a default access mode for a lock type, and enforcing read-only access
 Here is the full declaration of the Access class:
 ```c++
-template<template<typename> class LockType = std::lock_guard, eAccessModes AccessMode = LockTraits<LockType>::IsReadOnly ? eAccessModes::ReadOnly : eAccessModes::ReadWrite> class Access;
+template<template<typename> class LockType = std::lock_guard, AccessMode AccessModee = LockTraits<LockType>::IsReadOnly ? AccessMode::ReadOnly : AccessMode::ReadWrite> class Access;
 ```
 Don't be daunted be the first template parameter, it only means that the LockType must be a class template with one template parameter (like std::lock_guard and std::unique_lock).  
 
 Now don't be daunted by the second template parameter, it is the customization point you can use to change the default behavior of the Access class. 
-As already mentioned, the AccessMode template parameter defines the access mode for the Access class: either read-write or read-only. The parameter has a default value, and this default value depends on the LockTraits type trait that is defined in safetraits.h:
+As already mentioned, the AccessModee template parameter defines the access mode for the Access class: either read-write or read-only. The parameter has a default value, and this default value depends on the LockTraits type trait that is defined in safetraits.h:
 - If no specialization of the type trait exists for LockType, the default access mode is ReadWrite. 
 - If a specialization exists, it must declare the IsReadOnly boolean variable which determines the default access mode for the lock type. 
-- If IsReadOnly is true, the default value for AccessMode is eAccessModes::ReadOnly *and* using AccessMode = eAccessModes::ReadWrite will fail to compile. 
-- If IsReadOnly is false, the default value for AccessMode is eAccessModes::ReadWrite.  
+- If IsReadOnly is true, the default value for AccessModee is AccessMode::ReadOnly *and* using AccessModee = AccessMode::ReadWrite will fail to compile. 
+- If IsReadOnly is false, the default value for AccessModee is AccessMode::ReadWrite.  
 
 It is useful to specify a ReadOnly default access mode for shared locks like std::shared_unique_lock. 
 

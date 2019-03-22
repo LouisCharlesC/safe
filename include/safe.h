@@ -80,32 +80,32 @@ namespace safe
 		 * 
 		 * @tparam LockType The type of the lock object that manages the
 		 * lockable object, example: std::lock_guard.
-		 * @tparam AccessMode Determines the access mode of the Access
-		 * object. Can be either eAccessModes::ReadOnly or
-		 * eAccessModes::ReadWrite. Default value depends on LockType's
+		 * @tparam Mode Determines the access mode of the Access
+		 * object. Can be either AccessMode::ReadOnly or
+		 * AccessMode::ReadWrite. Default value depends on LockType's
 		 * IsReadOnly trait (see safetraits.h). If no specialization of
 		 * safe::LockTraits exists for LockType, the access is ReadWrite.
 		 * If such a specialization exists, the access mode depends on the
 		 * IsReadOnly variable defined in the specialization. If IsReadOnly
 		 * is true, access mode is ReadOnly, otherwise, it is ReadWrite.
 		 */
-		template<template<typename> class LockType = std::lock_guard, eAccessModes AccessMode = LockTraits<LockType>::IsReadOnly ? eAccessModes::ReadOnly : eAccessModes::ReadWrite>
+		template<template<typename> class LockType = std::lock_guard, AccessMode Mode = LockTraits<LockType>::IsReadOnly ? AccessMode::ReadOnly : AccessMode::ReadWrite>
 		class Access
 		{
-			static_assert(!(LockTraits<LockType>::IsReadOnly && AccessMode==eAccessModes::ReadWrite), "Cannot have ReadWrite access mode with ReadOnly lock. Check the value of LockTraits<LockType>::IsReadOnly if it exists.");
+			static_assert(!(LockTraits<LockType>::IsReadOnly && Mode==AccessMode::ReadWrite), "Cannot have ReadWrite access mode with ReadOnly lock. Check the value of LockTraits<LockType>::IsReadOnly if it exists.");
 
 		private:
-			/// ValueType with const qualifier if eAccessModes is ReadOnly.
-			using ConstIfReadOnlyValueType = typename std::conditional<AccessMode==eAccessModes::ReadOnly, const RemoveRefValueType, RemoveRefValueType>::type;
+			/// ValueType with const qualifier if AccessMode is ReadOnly.
+			using ConstIfReadOnlyValueType = typename std::conditional<Mode==AccessMode::ReadOnly, const RemoveRefValueType, RemoveRefValueType>::type;
 
 		public:
 			/// Pointer-to-const ValueType
 			using ConstPointerType = const ConstIfReadOnlyValueType*;
-			/// Pointer-to-const ValueType if AccessMode is ReadOnly, pointer to ValueType otherwise.
+			/// Pointer-to-const ValueType if Mode is ReadOnly, pointer to ValueType otherwise.
 			using PointerType = ConstIfReadOnlyValueType*;
 			/// Reference-to-const ValueType
 			using ConstReferenceType = const ConstIfReadOnlyValueType&;
-			/// Reference-to-const ValueType if AccessMode is ReadOnly, reference to ValueType otherwise.
+			/// Reference-to-const ValueType if Mode is ReadOnly, reference to ValueType otherwise.
 			using ReferenceType = ConstIfReadOnlyValueType&;
 
 			/**
@@ -181,6 +181,13 @@ namespace safe
 		 * @brief Construct a Safe object
 		 */
 		Safe() = default;
+
+		// Delete all copy and move operations, as they sometimes require protected access.
+		Safe(const Safe&) = delete;
+		Safe(Safe&&) = delete;
+		Safe& operator =(const Safe&) = delete;
+		Safe& operator =(Safe&&) = delete;
+
 		/**
 		 * @brief Construct a Safe object with default construction of the
 		 * Lockable object and perfect forwarding of the other arguments to
@@ -208,70 +215,29 @@ namespace safe
 		/**
 		 * @brief Create an Access object with read-only access mode.
 		 *
-		 * By default, the lock type is the DefaultReadOnlyLock type
-		 * provided as template argument to the Safe class.
-		 * If needed, you can provide additionnal arguments to construct
-		 * the lock object (such as std::adopt_lock). The lockable object
-		 * from the safe object is already passed to the lock object's
-		 * constructor though, you must not provide it.
-		 * 
 		 * @tparam LockType The type of the lock object that manages the
 		 * lockable object.
 		 * @tparam OtherLockArgs Deduced from otherLockArgs.
 		 * @param otherLockArgs Other arguments needed to construct the
 		 * lock object.
-		 * @return Access<LockType, eAccessModes::ReadOnly> The Access
+		 * @return Access<LockType, AccessMode::ReadOnly> The Access
 		 * object.
 		 */
 		template<template<typename> class LockType=DefaultReadOnlyLock, typename... OtherLockArgs>
-		Access<LockType, eAccessModes::ReadOnly> access(OtherLockArgs&&... otherLockArgs) const;
+		Access<LockType, AccessMode::ReadOnly> readAccess(OtherLockArgs&&... otherLockArgs) const;
 
 		/**
-		 * @brief Create an Access object with access mode based on
-		 * LockType's IsReadOnly trait (see safetraits.h).
-		 * 
-		 * If no specialization of safe::LockTraits exists for LockType, the
-		 * access is ReadWrite. If such a specialization exists, the access
-		 * mode depends on the IsReadOnly variable defined in the
-		 * specialization. If IsReadOnly is true, access mode is ReadOnly,
-		 * otherwise, it is ReadWrite.
-		 * If needed, you can provide additionnal arguments to construct
-		 * the lock object (such as std::adopt_lock). The lockable object
-		 * from the safe object is already passed to the lock object's
-		 * constructor though, you must not provide it.
+		 * @brief Create an Access object with read-write access mode.
 		 * 
 		 * @tparam LockType The type of the lock object that manages the
 		 * lockable object.
 		 * @tparam OtherLockArgs Deduced from otherLockArgs.
 		 * @param otherLockArgs Other arguments needed to construct the
 		 * lock object.
-		 * @return Access<LockType> The Access object.
+		 * @return Access<LockType, AccessMode::ReadWrite> The Access object.
 		 */
 		template<template<typename> class LockType=std::lock_guard, typename... OtherLockArgs>
-		Access<LockType> access(OtherLockArgs&&... otherLockArgs);
-
-		/**
-		 * @brief Create an Access object with the specified access mode.
-		 * 
-		 * If needed, you can provide additionnal arguments to construct
-		 * the lock object (such as std::adopt_lock). The lockable object
-		 * from the safe object is already passed to the lock object's
-		 * constructor though, you must not provide it.
-		 * 
-		 * @tparam AccessMode Determines the access mode of the Access
-		 * object. Can be either eAccessModes::ReadOnly or
-		 * eAccessModes::ReadWrite.
-		 * @tparam LockType The type of the lock object that manages the
-		 * lockable object.
-		 * @tparam OtherLockArgs Deduced from otherLockArgs.
-		 * @param otherLockArgs Other arguments needed to construct the
-		 * lock object.
-		 * @return Access<LockType, AccessMode> The Access object.
-		 */
-		template<eAccessModes AccessMode, typename... OtherLockArgs>
-		Access<std::lock_guard, AccessMode> access(OtherLockArgs&&... otherLockArgs);
-		template<template<typename> class LockType, eAccessModes AccessMode, typename... OtherLockArgs>
-		Access<LockType, AccessMode> access(OtherLockArgs&&... otherLockArgs);
+		Access<LockType, AccessMode::ReadWrite> writeAccess(OtherLockArgs&&... otherLockArgs);
 
 		/**
 		 * @brief Unsafe const accessor to the value.
