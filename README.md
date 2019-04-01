@@ -21,25 +21,28 @@ Here is why you want to use safe:
 ```c++
 std::mutex frontEndMutex;
 std::mutex backEndMutex;
-int value; // <-- do I need to lock a mutex to safely access this value ?
+int frontEndValue; // <-- do I need to lock a mutex to safely access this variable ?
+
 {
 	std::lock_guard<std::mutex> lock(frontEndMutex); // <-- is this the right mutex ?
-	++value;
+	++frontEndValue;
 }
---value; // <-- unprotected access, is this intended ?
+
+--frontEndValue; // <-- unprotected access, is this intended ?
 ```
 ### With safe
 ```c++
-std::mutex frontEndMutex;
-safe::Safe<int> value; // <-- value and mutex packaged together!
+std::mutex backEndMutex;
+safe::Safe<int> frontEndValue; // <-- value and mutex packaged together!
+
 {
-	auto&& safeValue = value.writeAccess(); // <-- right mutex: guaranteed!
+	auto&& safeFrontEndValue = frontEndValue.writeAccess(); // <-- right mutex: guaranteed!
 	//  ^^ do not mind the rvalue reference, I will explain its presence later on.
 
-	++*safeValue; // access the value using pointer semantics: * and ->
+	++*safeFrontEndValue; // access the value using pointer semantics: * and ->
 } // from here, you cannot directly access the value anymore: jolly good, since the mutex is not locked anymore!
 
---value.unsafe(); // <-- unprotected access: clearly expressed!
+--frontEndValue.unsafe(); // <-- unprotected access: clearly expressed!
 ```
 ### Vocabulary
 * *safe*: the safe library.
