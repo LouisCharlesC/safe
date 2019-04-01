@@ -11,9 +11,9 @@
 
 #pragma once
 
-#include "mutex"
+#include <mutex>
 #if __cplusplus >= 201402L
-#include "shared_mutex"
+#include <shared_mutex>
 #endif // __cplusplus >= 201402L
 
 namespace safe

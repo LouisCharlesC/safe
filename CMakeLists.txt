@@ -8,7 +8,7 @@ endif()
 
 project (safe)
 set(VERSION_MAJOR 0)
-set(VERSION_MINOR 0)
+set(VERSION_MINOR 1)
 set(VERSION_PATCH 1)
 
 find_package(Doxygen)
@@ -28,3 +28,5 @@ include_directories(include)
 
 add_executable(tests tests/tests.cpp tests/test_safe.cpp)
 target_link_libraries(tests gmock gtest ${CMAKE_THREAD_LIBS_INIT})
+
+install(DIRECTORY include/safe DESTINATION include)

@@ -21,28 +21,28 @@ Here is why you want to use safe:
 ```c++
 std::mutex frontEndMutex;
 std::mutex backEndMutex;
-int frontEndValue; // <-- do I need to lock a mutex to safely access this variable ?
+std::string frontEndValue; // <-- do I need to lock a mutex to safely access this variable ?
 
 {
 	std::lock_guard<std::mutex> lock(frontEndMutex); // <-- is this the right mutex ?
-	++frontEndValue;
+	frontEndValue = "Hello, World!";
 }
 
---frontEndValue; // <-- unprotected access, is this intended ?
+std::cout << frontEndValue << std::endl; // <-- unprotected access, is this intended ?
 ```
 ### With safe
 ```c++
 std::mutex backEndMutex;
-safe::Safe<int> frontEndValue; // <-- value and mutex packaged together!
+safe::Safe<std::string> frontEndValue; // <-- value and mutex packaged together!
 
 {
 	auto&& safeFrontEndValue = frontEndValue.writeAccess(); // <-- right mutex: guaranteed!
 	//  ^^ do not mind the rvalue reference, I will explain its presence later on.
 
-	++*safeFrontEndValue; // access the value using pointer semantics: * and ->
+	*safeFrontEndValue = "Hello, World!"; // access the value using pointer semantics: * and ->
 } // from here, you cannot directly access the value anymore: jolly good, since the mutex is not locked anymore!
 
---frontEndValue.unsafe(); // <-- unprotected access: clearly expressed!
+std::cout << frontEndValue.unsafe() << std::endl; // <-- unprotected access: clearly expressed!
 ```
 ### Vocabulary
 * *safe*: the safe library.
@@ -55,7 +55,7 @@ safe::Safe<int> frontEndValue; // <-- value and mutex packaged together!
 ## Basic usage
 ### Include the header-only library
 ```c++
-#include "safe.hpp"
+#include "safe/safe.h"
 ```
 ### Replace your value and lockable objects by a Safe object
 ```c++

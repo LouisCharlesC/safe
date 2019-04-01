@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "safetraits.h"
+#include "safe/safetraits.h"
 
 #include <mutex>
 #include <type_traits>
@@ -122,7 +122,12 @@ namespace safe
 			 * lock object.
 			 */
 			template<typename... OtherLockArgs>
-			Access(const Safe& safe, OtherLockArgs&&... otherLockArgs);
+			Access(const Safe& safe, OtherLockArgs&&... otherLockArgs):
+				lock(safe.lockable(), std::forward<OtherLockArgs>(otherLockArgs)...),
+				m_value(safe.unsafe())
+			{
+				static_assert(Mode==AccessMode::ReadOnly, "Mode must be ReadOnly when you construct from a const Safe object.");
+			}
 			/**
 			 * @brief Construct an Access object from a Safe object.
 			 * 
@@ -137,32 +142,47 @@ namespace safe
 			 * lock object.
 			 */
 			template<typename... OtherLockArgs>
-			Access(Safe& safe, OtherLockArgs&&... otherLockArgs);
+			Access(Safe& safe, OtherLockArgs&&... otherLockArgs):
+				lock(safe.lockable(), std::forward<OtherLockArgs>(otherLockArgs)...),
+				m_value(safe.unsafe())
+			{}
 
 			/**
 			 * @brief Const accessor to the value.
 			 * @return ConstPointerType Const pointer to the protected value.
 			 */
-			ConstPointerType operator->() const noexcept;
+			ConstPointerType operator->() const noexcept
+			{
+				return &m_value;
+			}
 
 			/**
 			 * @brief Accessor to the value.
 			 * @return ValuePointerType Pointer to the protected value.
 			 */
-			PointerType operator->() noexcept;
+			PointerType operator->() noexcept
+			{
+				return &m_value;
+			}
 
 			/**
 			 * @brief Const accessor to the value.
 			 * @return ConstReferenceType Const reference to the protected
 			 * value.
 			 */
-			ConstReferenceType operator*() const noexcept;
+			ConstReferenceType operator*() const noexcept
+			{
+				return m_value;
+			}
 
 			/**
 			 * @brief Accessor to the value.
 			 * @return ReferenceType Reference to the protected.
 			 */
-			ReferenceType operator*() noexcept;
+			ReferenceType operator*() noexcept
+			{
+				return m_value;
+			}
 
 			/// The lock that manages the lockable object.
 			mutable LockType<RemoveRefLockableType> lock;
@@ -198,7 +218,10 @@ namespace safe
 		 * @param valueArgs Perfect forwarding arguments to construct the value object.
 		 */
 		template<typename... ValueArgs>
-		explicit Safe(default_construct_lockable_t, ValueArgs&&... valueArgs);
+		explicit Safe(default_construct_lockable_t, ValueArgs&&... valueArgs):
+			m_lockable(),
+			m_value(std::forward<ValueArgs>(valueArgs)...)
+		{}
 		/**
 		 * @brief Construct a Safe object, perfect forwarding the first
 		 * argument to construct the lockable object and perfect forwarding
@@ -210,7 +233,10 @@ namespace safe
 		 * @param valueArgs Perfect forwarding arguments to construct the value object.
 		 */
 		template<typename LockableArg, typename... ValueArgs>
-		explicit Safe(LockableArg&& lockableArg, ValueArgs&&... valueArgs);
+		explicit Safe(LockableArg&& lockableArg, ValueArgs&&... valueArgs):
+			m_lockable(std::forward<LockableArg>(lockableArg)),
+			m_value(std::forward<ValueArgs>(valueArgs)...)
+		{}
 
 		/**
 		 * @brief Create an Access object with read-only access mode.
@@ -224,7 +250,10 @@ namespace safe
 		 * object.
 		 */
 		template<template<typename> class LockType=DefaultReadOnlyLock, typename... OtherLockArgs>
-		Access<LockType, AccessMode::ReadOnly> readAccess(OtherLockArgs&&... otherLockArgs) const;
+		Access<LockType, AccessMode::ReadOnly> readAccess(OtherLockArgs&&... otherLockArgs) const
+		{
+			return {*this, std::forward<OtherLockArgs>(otherLockArgs)...};
+		}
 
 		/**
 		 * @brief Create an Access object with read-write access mode.
@@ -237,35 +266,40 @@ namespace safe
 		 * @return Access<LockType, AccessMode::ReadWrite> The Access object.
 		 */
 		template<template<typename> class LockType=std::lock_guard, typename... OtherLockArgs>
-		Access<LockType, AccessMode::ReadWrite> writeAccess(OtherLockArgs&&... otherLockArgs);
+		Access<LockType, AccessMode::ReadWrite> writeAccess(OtherLockArgs&&... otherLockArgs)
+		{
+			return {*this, std::forward<OtherLockArgs>(otherLockArgs)...};
+		}
 
 		/**
 		 * @brief Unsafe const accessor to the value.
 		 * 
 		 * @return ConstReferenceType Const reference to the value.
 		 */
-		ConstReferenceType unsafe() const noexcept;
+		ConstReferenceType unsafe() const noexcept
+		{
+			return m_value;
+		}
 		/**
 		 * @brief Unsafe accessor to the value.
 		 * 
 		 * @return ReferenceType Reference to the value.
 		 */
-		ReferenceType unsafe() noexcept;
-
-		/**
-		 * @brief Const accessor to the lockable object.
-		 * 
-		 * @return const RemoveRefLockableType& Const reference to the
-		 * lockable object.
-		 */
-		const RemoveRefLockableType& lockable() const noexcept;
+		ReferenceType unsafe() noexcept
+		{
+			return m_value;
+		}
 
 		/**
 		 * @brief Accessor to the lockable object.
 		 * 
-		 * @return RemoveRefLockableType& Reference to the lockable object.
+		 * @return RemoveRefLockableType& Reference to the
+		 * lockable object.
 		 */
-		RemoveRefLockableType& lockable() noexcept;
+		RemoveRefLockableType& lockable() const noexcept
+		{
+			return m_lockable.lockable;
+		}
 
 	private:
 		/// The helper class instance that holds the mutable lockable object, or a reference to it.
