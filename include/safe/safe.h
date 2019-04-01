@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "safe/safetraits.h"
+#include "safetraits.h"
 
 #include <mutex>
 #include <type_traits>
