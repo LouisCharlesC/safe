@@ -78,13 +78,41 @@ void readmeWithSafeExample()
 std::mutex frontEndMutex;
 safe::Safe<int> value; // <-- value and mutex packaged together!
 {
-	auto&& safeValue = value.access(); // <-- right mutex: guaranteed!
+	auto&& safeValue = value.writeAccess(); // <-- right mutex: guaranteed!
 	//  ^^ do not mind the rvalue reference, I will explain its presence later on.
 
 	++*safeValue; // access the value using pointer semantics: * and ->
 } // from here, you cannot directly access the value anymore: jolly good, since the mutex is not locked anymore!
 
 --value.unsafe(); // <-- unprotected access: clearly expressed!
+}
+
+void readmeBasicUsageWithoutSafe()
+{
+std::mutex mutex;
+int value;
+std::lock_guard<std::mutex> lock(mutex);
+value = 42;
+}
+
+void readmeBasicUsageWithSafe()
+{
+safe::Safe<int> value;
+auto&& safeValue = value.writeAccess();
+//  ^^ argh, this rvalue reference again! Here is the explanation:
+const auto& constSafeValueLockGuard = value.writeAccess(); // compiles but makes the object const!
+auto&& safeValueLockGuard = value.writeAccess(); // rvalue reference makes it work
+auto safeValueUniqueLock = value.writeAccess<std::unique_lock>(); // no rvalue reference needed
+*safeValue = 42;
+}
+
+void readmeRValueReferenceExplained()
+{
+safe::Safe<int> value;
+// auto safeValue = value.writeAccess(); // <-- does not compile!
+const auto& constSafeValueLockGuard = value.writeAccess(); // compiles but makes the object const!
+auto&& safeValueLockGuard = value.writeAccess(); // rvalue reference makes it work
+auto safeValueUniqueLock = value.writeAccess<std::unique_lock>(); // no rvalue reference needed
 }
 
 void readmeDefaultConstructLockableTag()
@@ -100,100 +128,66 @@ safe::Safe<int, std::mutex> lockableDefaultBraces({}, 42);
 
 void readmeFlexiblyConstructLock()
 {
-safe::Safe<int> value;
-value.lockable().lock();
-{
-	safe::Safe<int>::Access<> safeValue(value, std::adopt_lock);
-}
-{
-	auto&& safeValue = value.access(std::adopt_lock);
-}
+safe::Safe<int> value; // given a safe object
+value.lockable().lock(); // with the mutex already locked...
+// Because the mutex is already locked, you need to pass the std::adopt_lock tag to std::lock_guard when you construct your Access object.
+
+// Fortunately, all arguments passed to the Safe::writeAccess() function are forwarded to the lock constructor.
+auto&& safeValue = value.writeAccess(std::adopt_lock);
 }
 
 void readmeLegacy()
 {
-// Unsafe code below!
 std::mutex mutex;
-int value;
-// End of usafe code!
-// Safe code from here on
-safe::Safe<int&, std::mutex&> safeValue(mutex, value);
-// Forget about mutex and value, only use safeValue
+int unsafeValue;
+
+// Wrap the existing variables
+safe::Safe<int&, std::mutex&> value(mutex, unsafeValue);
+// do not use mutex and unsafeValue directly from here on!
 }
 
 void readmeConditionVariable()
 {
 std::condition_variable cv;
 safe::Safe<int> value;
-auto safeValue = value.access<std::unique_lock>();
+auto safeValue = value.writeAccess<std::unique_lock>();
+//  ^ no rvalue reference here because we use a std::unique_lock
 cv.wait(safeValue.lock);
-}
-
-void readmeBasicWithoutSafe()
-{
-std::mutex mutex;
-int value;
-std::lock_guard<std::mutex> lock(mutex);
-value = 42;
-}
-
-void readmeBasicWithSafe()
-{
-safe::Safe<int> value;
-auto&& safeValue = value.access();
-*safeValue = 42;
-}
-
-void readmeRValueReferenceExplained()
-{
-safe::Safe<int> value;
-// auto safeValue = value.access(); // <-- does not compile!
-auto&& safeValueLockGuard = value.access(); // need rvalue reference
-auto safeValueUniqueLock = value.access<std::unique_lock>(); // no rvalue reference needed
 }
 
 void readmeOneLiner()
 {
 safe::Safe<std::vector<int>> vector;
-
-// One-liner example: assign a new value to the vector
-*vector.access() = std::vector<int>(1, 2);
-
-// Another one-liner example: clear the vector
-vector.access()->clear();
-}
-
-void readmeSpecifyingAccessMode()
-{
-safe::Safe<int> safeValue;
-safe::Safe<int>::Access<std::lock_guard, safe::AccessMode::ReadOnly> value(safeValue);
-auto&& sameValue = safeValue.access<safe::AccessMode::ReadOnly>();
+// One-liner to assign a new value to the vector
+*vector.writeAccess() = std::vector<int>(1, 2);
+// One-liner to clear the vector
+vector.writeAccess()->clear();
 }
 
 template <typename ValueType>
-class ClassTemplateExample
+class Example
 {
 public:
+	void exampleAccessType()
+	{
+		typename safe::Safe<ValueType>::template Access<std::lock_guard> safeValue(m_value);
+		                             // ^^^^^^^^^ <-- weird syntax
+	}
+	void exampleWriteAccessMemberFunction()
+	{
+		auto&& safeValue = m_value.template writeAccess<std::lock_guard>();
+		                        // ^^^^^^^^^ <-- weird syntax
+	}
 
-	void accessMemberFunction()
-	{
-		auto&& safeValue = m_value.template access<std::lock_guard>();
-	}
-	void accessClass()
-	{
-		typename safe::Safe<ValueType>::template Access<> safeValue(m_value);
-		//																						 ^^
-		// Access<> is the syntax to use the default parameters of the class template.
-	}
 private:
 	safe::Safe<ValueType> m_value;
 };
 
 void readmeSafeInTemplatedCode()
 {
-	ClassTemplateExample<int> example;
-	example.accessMemberFunction();
-	example.accessClass();
+	Example<int> example;
+	example.exampleAccessType();
+	example.exampleWriteAccessMemberFunction();
 }
 
 void readmeReturnStdLockGuard()
@@ -203,7 +197,7 @@ class MultithreadedCount
 public:
 	void increment()
 	{
-		++*m_count.access();
+		++*m_count.writeAccess();
 	}
 
 	safe::Safe<int>::Access<> get() // Access<> defaults to std::lock_guard and ReadWrite template parameters
@@ -268,7 +262,7 @@ TEST_F(SafeTest, DefaultLockableDefaultValueConstructor) {
 TEST_F(SafeTest, SafeLockableRefValueRefAccess) {
 	SafeLockableRefValueRefType safe(lockable, value);
 	
-	SafeLockableRefValueRefReadWriteAccessType access = safe.access<DummyLock>();
+	SafeLockableRefValueRefReadWriteAccessType access = safe.writeAccess<DummyLock>();
 	
 	EXPECT_EQ(&*access, &value);
 	EXPECT_EQ(&*static_cast<const SafeLockableRefValueRefReadWriteAccessType&>(access), &value);
@@ -280,7 +274,7 @@ TEST_F(SafeTest, SafeLockableRefValueRefAccess) {
 TEST_F(SafeTest, SafeLockableValueAccess) {
 	SafeLockableValueType safe(safe::default_construct_lockable, value);
 	
-	SafeLockableValueReadWriteAccessType access = safe.access<DummyLock>();
+	SafeLockableValueReadWriteAccessType access = safe.writeAccess<DummyLock>();
 	
 	EXPECT_EQ(&*access, &safe.unsafe());
 	EXPECT_EQ(&*static_cast<const SafeLockableValueReadWriteAccessType&>(access), &safe.unsafe());
@@ -290,7 +284,7 @@ TEST_F(SafeTest, SafeLockableValueAccess) {
 TEST_F(SafeTest, ConstSafeLockableRefValueRefReadOnlyAccess) {
 	const SafeLockableRefValueRefType safe(lockable, value);
 	
-	SafeLockableRefValueRefReadOnlyAccessType access = safe.access<DummyLock>();
+	SafeLockableRefValueRefReadOnlyAccessType access = safe.readAccess<DummyLock>();
 	
 	EXPECT_EQ(&*access, &value);
 	EXPECT_EQ(&*static_cast<const SafeLockableRefValueRefReadOnlyAccessType&>(access), &value);
@@ -302,7 +296,7 @@ TEST_F(SafeTest, ConstSafeLockableRefValueRefReadOnlyAccess) {
 TEST_F(SafeTest, ConstSafeLockableValueReadOnlyAccess) {
 	const SafeLockableValueType safe(safe::default_construct_lockable, value);
 	
-	SafeLockableValueReadOnlyAccessType access = safe.access<DummyLock>();
+	SafeLockableValueReadOnlyAccessType access = safe.readAccess<DummyLock>();
 	
 	EXPECT_EQ(&*access, &safe.unsafe());
 	EXPECT_EQ(&*static_cast<const SafeLockableValueReadOnlyAccessType&>(access), &safe.unsafe());
