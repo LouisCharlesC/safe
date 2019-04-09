@@ -1,10 +1,13 @@
-//============================================================================
-// Name        : localSafe.cpp
-// Author      : 
-// Version     :
-// Copyright   : Your copyright notice
-// Description : Hello World in C++, Ansi-style
-//============================================================================
+/**
+ * @file test_safe.cpp
+ * @author L.-C. C.
+ * @brief 
+ * @version 0.1
+ * @date 2018-11-24
+ * 
+ * @copyright Copyright (c) 2018
+ * 
+ */
 
 #include "safe/safe.h"
 
@@ -172,26 +175,18 @@ template <typename ValueType>
 class Example
 {
 public:
-	void exampleAccessType()
+	void weirdSyntaxExample()
 	{
-		typename safe::Safe<ValueType>::template Access<std::lock_guard> safeValue(m_value);
-		                             // ^^^^^^^^^ <-- weird syntax
+		safe::Safe<ValueType> value;
+		typename safe::Safe<ValueType>::template Access<std::unique_lock> safeValue = value.template writeAccess<std::unique_lock>();
+		                             // ^^^^^^^^^                                           ^^^^^^^^^ <-- weird syntax
 	}
-	void exampleWriteAccessMemberFunction()
-	{
-		auto&& safeValue = m_value.template writeAccess<std::lock_guard>();
-		                        // ^^^^^^^^^ <-- weird syntax
-	}
-
-private:
-	safe::Safe<ValueType> m_value;
 };
 
 void readmeSafeInTemplatedCode()
 {
 	Example<int> example;
-	example.exampleAccessType();
-	example.exampleWriteAccessMemberFunction();
+	example.weirdSyntaxExample();
 }
 
 void readmeReturnStdLockGuard()
@@ -206,7 +201,7 @@ public:
 
 	safe::Safe<int>::Access<> get() // Access<> defaults to std::lock_guard and ReadWrite template parameters
 	{
-		return {m_count};
+		return {m_count.unsafe(), m_count.lockable()};
 	}
 
 private:

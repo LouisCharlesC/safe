@@ -13,20 +13,23 @@ set(VERSION_PATCH 1)
 
 find_package(Doxygen QUIET)
 if (DOXYGEN_FOUND)
-	message(STATUS "Building Doxygen documentation")
 	set(DOXYFILE_TO_CONFIGURE ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in)
 	set(DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
 
 	configure_file(${DOXYFILE_TO_CONFIGURE} ${DOXYFILE} @ONLY)
 	
-	add_custom_target(${PROJECT_NAME}_docs COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYFILE})
+	add_custom_target(doc COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYFILE})
 endif()
+
+include_directories(include)
+include_directories(util)
+include_directories(examples)
 
 find_package(GTest QUIET)
 if(GTEST_FOUND)
-	find_package(Threads REQUIRED)
 	message(STATUS "Building Tests")
-	add_executable(tests tests/tests.cpp tests/test_safe.cpp)
+	find_package(Threads REQUIRED)
+	add_executable(tests tests/tests.cpp tests/test_safe.cpp tests/test_resource.cpp tests/test_state.cpp)
 	target_link_libraries(tests gmock gtest ${CMAKE_THREAD_LIBS_INIT})
 endif()
 

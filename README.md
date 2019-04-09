@@ -204,19 +204,12 @@ template <typename ValueType>
 class Example
 {
 public:
-	void exampleAccessType()
+	void weirdSyntaxExample()
 	{
-		typename safe::Safe<ValueType>::template Access<std::lock_guard> safeValue(m_value);
-		                             // ^^^^^^^^^ <-- weird syntax
+		safe::Safe<ValueType> value;
+		typename safe::Safe<ValueType>::template Access<std::unique_lock> safeValue = value.template writeAccess<std::unique_lock>();
+		//                              ^^^^^^^^^                                           ^^^^^^^^^ <-- weird syntax
 	}
-	void exampleWriteAccessMemberFunction()
-	{
-		auto&& safeValue = m_value.template writeAccess<std::lock_guard>();
-		                        // ^^^^^^^^^ <-- weird syntax
-	}
-
-private:
-	safe::Safe<ValueType> m_value;
 };
 ```
 ### Returning an Access\<std::lock_guard\> object
@@ -243,10 +236,10 @@ This is all nice and good, but imagine you would like client code to do more tha
 ```c++
 	safe::Safe<int>::Access<> get() // Access<> defaults to std::lock_guard and ReadWrite template parameters
 	{
-		return {m_count};
+		return {m_count.unsafe(), m_count.lockable()};
 	}
 ```
-**Notice the list-initialization in the return statement:** pre-C++17, it is mandatory to use this syntax, again because Access\<std::lock_guard\> is non-copyable, non-moveable.
+**Notice the list-initialization in the return statement:** pre-C++17, it is mandatory to use this syntax, again because Access\<std::lock_guard\> is non-copyable, non-moveable. Post-C++17, you can simply ```return m_count.writeAccess();```.
 
 With such an interface, the client has a lot of freedom and the guarantee of thread safety.
 ```c++
@@ -260,6 +253,6 @@ count.increment(); // thread safety managed inside the function call, simple but
 	--*safeCount;
 } // mutex automatically unlocked when scope is exited
 ```
-See the State class in my *mess* repository for a concrete example of this technique.
+See the safe::State class in the examples folder for a concrete example of this technique.
 ## Complete examples
-The mess::State and mess::Resource classes from my *mess* repository use *safe*.
+The safe::State and safe::Resource classes use *safe*.

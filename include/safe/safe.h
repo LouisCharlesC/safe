@@ -1,8 +1,12 @@
-/*
- * safe.h
- *
- *  Created on: Sep 21, 2018
- *      Author: lcc
+/**
+ * @file safe.h
+ * @author L.-C. C.
+ * @brief 
+ * @version 0.1
+ * @date 2018-09-21
+ * 
+ * @copyright Copyright (c) 2018
+ * 
  */
 
 #pragma once
@@ -72,7 +76,7 @@ namespace safe
 		using RemoveRefValueType = typename std::remove_reference<ValueType>::type;
 		/// Type LockableType with reference removed, if present
 		using RemoveRefLockableType = typename std::remove_reference<LockableType>::type;
-		
+
 	public:
 		/**
 		 * @brief Manages a lockable object and gives access to the value
@@ -109,42 +113,19 @@ namespace safe
 			using ReferenceType = ConstIfReadOnlyValueType&;
 
 			/**
-			 * @brief Construct an Access object from a const Safe object.
+			 * @brief Construct an Access object from a possibly const
+			 * reference to the value object and any argument needed to
+			 * construct the Lock object.
 			 * 
-			 * If needed, you can provide additionnal arguments to construct
-			 * the lock object (such as std::adopt_lock). The lockable object
-			 * from the safe object is already passed to the lock object's
-			 * constructor though, you must not provide it.
-			 * 
-			 * @tparam OtherLockArgs Deduced from otherLockArgs.
-			 * @param safe The Safe object to give protected access to.
-			 * @param otherLockArgs Other arguments needed to construct the
-			 * lock object.
+			 * @tparam LockArgs Deduced from lockArgs.
+			 * @param value Reference to the value.
+			 * @param lockArgs Other arguments needed to construct the lock
+			 * object.
 			 */
-			template<typename... OtherLockArgs>
-			Access(const Safe& safe, OtherLockArgs&&... otherLockArgs):
-				lock(safe.lockable(), std::forward<OtherLockArgs>(otherLockArgs)...),
-				m_value(safe.unsafe())
-			{
-				static_assert(Mode==AccessMode::ReadOnly, "Mode must be ReadOnly when you construct from a const Safe object.");
-			}
-			/**
-			 * @brief Construct an Access object from a Safe object.
-			 * 
-			 * If needed, you can provide additionnal arguments to construct
-			 * the lock object (such as std::adopt_lock). The lockable object
-			 * from the safe object is already passed to the lock object's
-			 * constructor though, you must not provide it.
-			 * 
-			 * @tparam OtherLockArgs Deduced from otherLockArgs.
-			 * @param safe The Safe object to give protected access to.
-			 * @param otherLockArgs Other arguments needed to construct the
-			 * lock object.
-			 */
-			template<typename... OtherLockArgs>
-			Access(Safe& safe, OtherLockArgs&&... otherLockArgs):
-				lock(safe.lockable(), std::forward<OtherLockArgs>(otherLockArgs)...),
-				m_value(safe.unsafe())
+			template<typename... LockArgs>
+			Access(ReferenceType value, LockArgs&&... lockArgs):
+				lock(std::forward<LockArgs>(lockArgs)...),
+				m_value(value)
 			{}
 
 			/**
@@ -167,7 +148,7 @@ namespace safe
 
 			/**
 			 * @brief Const accessor to the value.
-			 * @return ConstReferenceType Const reference to the protected
+			 * @return ConstValueReferenceType Const reference to the protected
 			 * value.
 			 */
 			ConstReferenceType operator*() const noexcept
@@ -177,7 +158,7 @@ namespace safe
 
 			/**
 			 * @brief Accessor to the value.
-			 * @return ReferenceType Reference to the protected.
+			 * @return ValueReferenceType Reference to the protected.
 			 */
 			ReferenceType operator*() noexcept
 			{
@@ -192,10 +173,19 @@ namespace safe
 			ReferenceType m_value;
 		};
 
+	private:
 		/// Reference-to-const ValueType.
-		using ConstReferenceType = const RemoveRefValueType&;
+		using ConstValueReferenceType = const RemoveRefValueType&;
 		/// Reference to ValueType.
-		using ReferenceType = RemoveRefValueType&;
+		using ValueReferenceType = RemoveRefValueType&;
+		/// Reference to LockableType.
+		using LockableReferenceType = RemoveRefLockableType&;
+
+	public:
+		template<template<typename> class LockType=DefaultReadOnlyLock, typename... OtherLockArgs>
+		using ReadAccess = Access<LockType, AccessMode::ReadOnly, OtherLockArgs...>;
+		template<template<typename> class LockType=std::lock_guard, typename... OtherLockArgs>
+		using WriteAccess = Access<LockType, AccessMode::ReadWrite, OtherLockArgs...>;
 		
 		/**
 		 * @brief Construct a Safe object
@@ -245,14 +235,14 @@ namespace safe
 		 * lockable object.
 		 * @tparam OtherLockArgs Deduced from otherLockArgs.
 		 * @param otherLockArgs Other arguments needed to construct the
-		 * lock object.
+		 * lock object (apart from the lockable object).
 		 * @return Access<LockType, AccessMode::ReadOnly> The Access
 		 * object.
 		 */
 		template<template<typename> class LockType=DefaultReadOnlyLock, typename... OtherLockArgs>
-		Access<LockType, AccessMode::ReadOnly> readAccess(OtherLockArgs&&... otherLockArgs) const
+		ReadAccess<LockType, OtherLockArgs...> readAccess(OtherLockArgs&&... otherLockArgs) const
 		{
-			return {*this, std::forward<OtherLockArgs>(otherLockArgs)...};
+			return {m_value, m_lockable.lockable, std::forward<OtherLockArgs>(otherLockArgs)...};
 		}
 
 		/**
@@ -262,30 +252,30 @@ namespace safe
 		 * lockable object.
 		 * @tparam OtherLockArgs Deduced from otherLockArgs.
 		 * @param otherLockArgs Other arguments needed to construct the
-		 * lock object.
+		 * lock object (apart from the lockable object).
 		 * @return Access<LockType, AccessMode::ReadWrite> The Access object.
 		 */
 		template<template<typename> class LockType=std::lock_guard, typename... OtherLockArgs>
-		Access<LockType, AccessMode::ReadWrite> writeAccess(OtherLockArgs&&... otherLockArgs)
+		WriteAccess<LockType, OtherLockArgs...> writeAccess(OtherLockArgs&&... otherLockArgs)
 		{
-			return {*this, std::forward<OtherLockArgs>(otherLockArgs)...};
+			return {m_value, m_lockable.lockable, std::forward<OtherLockArgs>(otherLockArgs)...};
 		}
 
 		/**
 		 * @brief Unsafe const accessor to the value.
 		 * 
-		 * @return ConstReferenceType Const reference to the value.
+		 * @return ConstValueReferenceType Const reference to the value.
 		 */
-		ConstReferenceType unsafe() const noexcept
+		ConstValueReferenceType unsafe() const noexcept
 		{
 			return m_value;
 		}
 		/**
 		 * @brief Unsafe accessor to the value.
 		 * 
-		 * @return ReferenceType Reference to the value.
+		 * @return ValueReferenceType Reference to the value.
 		 */
-		ReferenceType unsafe() noexcept
+		ValueReferenceType unsafe() noexcept
 		{
 			return m_value;
 		}
@@ -293,18 +283,17 @@ namespace safe
 		/**
 		 * @brief Accessor to the lockable object.
 		 * 
-		 * @return RemoveRefLockableType& Reference to the
+		 * @return LockableReferenceType Reference to the
 		 * lockable object.
 		 */
-		RemoveRefLockableType& lockable() const noexcept
+		LockableReferenceType lockable() const noexcept
 		{
 			return m_lockable.lockable;
 		}
 
 	private:
-		/// The helper class instance that holds the mutable lockable object, or a reference to it.
+		/// The helper object that holds the mutable lockable object, or a reference to the lockable object.
 		impl::MutableIfNotReferenceLockableType<LockableType> m_lockable;
-
 		/// The value to protect.
 		ValueType m_value;
 	};
