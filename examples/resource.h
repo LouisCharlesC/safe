@@ -23,6 +23,18 @@
 #include <vector>
 
 namespace mess {
+	/**
+	 * @brief Multi-threading utility class that allows you to reuse
+	 * expensive to construct objects and share them between threads.
+	 * 
+	 * Upon construction, Size instances of ValueType objects are
+	 * created. When, you call get(), you scan these instances to find
+	 * the first available one and you acquire a handle for it; this
+	 * instance is not available anymore until the handle gets destroyed.
+	 * 
+	 * @tparam ValueType Type of the resource.
+	 * @tparam Size=0 Number of resource instances.
+	 */
 	template<typename ValueType, std::size_t Size=0>
 	class Resource: private std::array<ValueType, Size>
 	{
@@ -55,6 +67,13 @@ namespace mess {
 		std::array<SpinMutex, Size> m_mutexes;
 	};
 
+	/**
+	 * @brief Runtime specified size specialization of Resource. It
+	 * internally uses vectors instead of arrays, and thus is slightly
+	 * less efficient.
+	 * 
+	 * @tparam ValueType Type of the resource
+	 */
 	template<typename ValueType>
 	class Resource<ValueType, 0>: private std::vector<ValueType>
 	{

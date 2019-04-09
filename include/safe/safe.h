@@ -26,7 +26,7 @@ namespace safe
 	struct default_construct_lockable_t {};
 	static constexpr default_construct_lockable_t default_construct_lockable;
 	
-	namespace impl
+	namespace trick
 	{
 		/**
 		 * @brief A helper class that defines a member variable of type
@@ -56,17 +56,17 @@ namespace safe
 			/// Reference to a Lockable object.
 			LockableType& lockable;
 		};
-	} // namespace impl
+	} // namespace trick
 
 	/**
 	 * @brief Wraps a value together with the lockable object that
 	 * protects it for multi-threaded access.
 	 * 
 	 * @tparam ValueType The type of the value to protect.
-	 * @tparam LockableType The type of the lockable object.
-	 * @tparam DefaultReadOnlyLock The lock type to use as default
-	 * template argument when creating Access objects from a const Safe
-	 * object. Make this a shared lock if you can.
+	 * @tparam LockableType The type of the lockable object. Use a shared
+	 * lockable if possible.
+	 * @tparam DefaultReadOnlyLock The lock type to use as default for
+	 * read only accesses. Use a shared lock if possible.
 	 */
 	template<typename ValueType, typename LockableType = std::mutex, template<typename> class DefaultReadOnlyLock = std::lock_guard>
 	class Safe
@@ -293,7 +293,7 @@ namespace safe
 
 	private:
 		/// The helper object that holds the mutable lockable object, or a reference to the lockable object.
-		impl::MutableIfNotReferenceLockableType<LockableType> m_lockable;
+		trick::MutableIfNotReferenceLockableType<LockableType> m_lockable;
 		/// The value to protect.
 		ValueType m_value;
 	};

@@ -9,7 +9,7 @@
  * 
  */
 
-#include "safe/resource.h"
+#include "resource.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"

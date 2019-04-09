@@ -9,7 +9,7 @@
  * 
  */
 
-#include "safe/state.h"
+#include "state.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"

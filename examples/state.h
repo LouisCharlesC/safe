@@ -18,10 +18,26 @@
 #include <utility>
 
 namespace mess {
-	template<typename ValueType>
+	/**
+	 * @brief Multi-threading utility class for variables that are meant
+	 * to be modified and read by several threads.
+	 * 
+	 * To replace the content of a State variable, call set(). To get a
+	 * copy of it, call get(). To perform arbitrary operations of a State
+	 * variable, call update(). Call read() to perform arbitrary read-only
+	 * operations. update() and read() yield safe::Access objects. 
+	 * 
+	 * @tparam ValueType Type of the State object.
+	 * @tparam LockableType The type of the lockable object. Use a shared
+	 * lockable if possible.
+	 * @tparam DefaultReadOnlyLock The lock type to use as default for
+	 * read only accesses. Use a shared lock if possible.
+	 */
+
+	template<typename ValueType, typename LockableType = std::mutex, template<typename> class DefaultReadOnlyLock = std::lock_guard>
 	class State
 	{
-		using SafeValue = safe::Safe<ValueType>;
+		using SafeValue = safe::Safe<ValueType, LockableType, DefaultReadOnlyLock>;
 
 	public:
     using Handle = ValueType;
@@ -59,12 +75,21 @@ namespace mess {
 	/**
 	 * @brief Copy-on-write optimization for State objects of std::shared_ptr!
 	 * 
-	 * @tparam ValueType 
+	 * Calls to set() replace the existing State object if possible,
+	 * otherwise they allocate a new one. update() also allocates a
+	 * new object only if needed. read() and get() return
+	 * std::shared_ptrs, they never make copies.
+	 * 
+	 * @tparam ValueType The type of std::shared_ptr's pointee.
+	 * @tparam LockableType The type of the lockable object. Use a shared
+	 * lockable if possible.
+	 * @tparam DefaultReadOnlyLock The lock type to use as default for
+	 * read only accesses. Use a shared lock if possible.
 	 */
-	template<typename ValueType>
-	class State<std::shared_ptr<ValueType>>
+	template<typename ValueType, typename LockableType, template<typename> class DefaultReadOnlyLock>
+	class State<std::shared_ptr<ValueType>, LockableType, DefaultReadOnlyLock>
 	{
-		using SafeValue = safe::Safe<std::shared_ptr<ValueType>>;
+		using SafeValue = safe::Safe<std::shared_ptr<ValueType>, LockableType, DefaultReadOnlyLock>;
 	public:
     using Handle = std::shared_ptr<const ValueType>;
 
@@ -102,8 +127,6 @@ namespace mess {
 				*state = std::make_shared<ValueType>(**state);
 			}
 
-			; // need to release the unique_lock to create a lock_guard, sad
-			// do not throw an exception between those two lines, else the mutex will remain locked, forever!
 			return {*state, *state.lock.release(), std::adopt_lock};
 		}
 
