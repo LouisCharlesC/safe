@@ -217,16 +217,14 @@ Most of the time when you use *safe*, you will have a Safe object as a private m
 
 Example:
 ```c++
-#include "safe.hpp"
-
 class MultithreadedCount
 {
 public:
 	void increment()
 	{
-		++*m_count.access();
+		++*m_count.writeAccess();
 	}
-
+	
 private:
 	safe::Safe<int> m_count;
 };
