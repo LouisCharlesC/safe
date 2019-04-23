@@ -22,13 +22,12 @@ if (DOXYGEN_FOUND)
 endif()
 
 include_directories(include)
-include_directories(util)
 
 find_package(GTest QUIET)
 if(GTEST_FOUND)
 	message(STATUS "Building Tests")
 	find_package(Threads REQUIRED)
-	add_executable(tests tests/tests.cpp tests/test_readme.cpp tests/test_lockable.cpp tests/test_resource.cpp tests/test_safe.cpp)
+	add_executable(tests tests/tests.cpp tests/test_readme.cpp tests/test_lockable.cpp tests/test_safe.cpp)
 	target_link_libraries(tests gmock gtest ${CMAKE_THREAD_LIBS_INIT})
 endif()
 
