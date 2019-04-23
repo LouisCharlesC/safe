@@ -14,7 +14,7 @@
 #include <atomic>
 #include <thread>
 
-namespace mess
+namespace safe
 {
 	struct lock_on_construction_t {};
 	static constexpr lock_on_construction_t lock_on_construction;
@@ -46,4 +46,4 @@ namespace mess
 	private:
 		std::atomic_flag m_flag = ATOMIC_FLAG_INIT;
 	};
-} // namespace mess
+} // namespace safe

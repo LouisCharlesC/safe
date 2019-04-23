@@ -9,14 +9,14 @@
  * 
  */
 
-#include "resource.h"
+#include "safe/resource.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 
 class TestResource : public testing::Test {
 public:
-	mess::Resource<int, 2> resource;
+	safe::Resource<int> resource{2};
 };
 
 TEST_F(TestResource, GetThenGet) {

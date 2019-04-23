@@ -13,7 +13,7 @@
 
 #include <mutex>
 
-namespace mess
+namespace safe
 {
 	template<typename LockableType>
 	class LockOnce: private std::unique_lock<LockableType>
@@ -34,4 +34,4 @@ namespace mess
 		using std::unique_lock<LockableType>::operator bool;
 		const LockableType* mutex() const noexcept {return std::unique_lock<LockableType>::mutex();}
 	};
-} // namespace mess
+} // namespace safe
