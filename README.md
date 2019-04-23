@@ -11,11 +11,11 @@ This readme will walk you through the important features of the library using se
 ## Background
 *safe* aims at preventing common multithread mistakes by providing tools that complement the C++ standard library. Using *safe*, you will find it much easier to write correct multithreaded code, and your code will be easier to understand.
 
-In multithreaded code, there is one rule: *avoid data races*. A data race exists when more than one thread access the same variable, at least one of these accesses modifies the variable and the accesses are not serialized. It is impossible to reason about the correctness of a program in the presence of data races. To avoid data races, accesses to a shared variable must be serialized using a synchronization mechanism like a mutex. Since C++11, the standard library provides such mechanisms, like std::mutex, along with tools to facilitate their usage, like std::lock_guard and std::unique_lock. In *safe* vocabulary, std::mutex is a *lockable* object, std::lock_guard is a *lock* object and the shared variable they protect is a *value* object.
+In multithreaded code, there is one rule: *avoid data races*. A data race exists when more than one thread access the same variable, at least one of these accesses modifies the variable and the accesses are not serialized. It is impossible to reason about the correctness of a program in the presence of data races. To avoid data races, accesses to a shared variable must be serialized using a synchronization mechanism like a mutex. Since C++11, the standard library provides such mechanisms, like std::mutex, along with tools to facilitate their usage, like std::lock_guard and std::unique_lock.
 
-The standard's tools are sufficient to write safe multithreaded code, but it is all too easy to write code you think is safe but actually is not. Typical mistakes are: locking the wrong lockable object and accessing the value object before locking (or after unlocking) the lockable.
+The standard's tools are sufficient to write safe multithreaded code, but it is all too easy to write code you think is safe but actually is not. Typical mistakes are: locking the wrong mutex and accessing the value object before locking (or after unlocking) the mutex.
 ## Overview
-Two class templates are at the core of *safe*: Lockable and Access. Lockable objects pack a mutex and a value object together. Access objects act as a lock object and provide pointer-like access to the value object. You will learn more about Lockable and Access [here](#Basic-interface).
+Two class templates are at the core of *safe*: Lockable and Access. Lockable objects pack a mutex and a value object together. Access objects act as a lock for the mutex and provide pointer-like access to the value object. You will learn more about Lockable and Access [here](#Basic-interface).
 
 Here is why you want to use *safe*:
 ### Without safe
