@@ -201,7 +201,7 @@ assert(vec.readAccess()->size() == 2); // check size
 ```
 
 Thread-safe *copy()*, *emplace()*, *readAccess()* and *writeAccess()*: this is all the Safe class is about.
-##### Specialization for Safe<std::shared_ptr>
+##### Specialization for Safe\<std::shared_ptr\>
 Safe objects of std::shared_ptr are interesting because the reference counting apparatus of the shared pointer allows for a very nice optimization: copy-on-write. For this class template specialization, calls to *copy()* do not make a copy of the pointed-to variable, but they return a const std::shared_ptr to the variable. From there, a copy of the variable *may* happen, but only if this returned shared_ptr still exists when the next call to *assign()* or *writeAccess()* happens. That is:
 ```c++
 safe::Safe<std::shared_ptr<std::vector<std::string>>> vec(2, "bar"); // std::shared_ptr managed internally
