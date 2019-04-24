@@ -119,29 +119,29 @@ cv.wait(valueAccess.lock);
 TEST(ReadmeSafe, Basic)
 {
 safe::Safe<std::vector<std::string>> vec;
-vec.emplace(2, "bar");
-auto copy = vec.copy();
-vec.writeAccess()->front() = "foo";
-assert(vec.readAccess()->size() == 2);
+vec = std::vector<std::string>(2, "bar"); // assign new vector
+auto copy = vec.copy(); // get a copy
+vec.writeAccess()->front() = "foo"; // replace front only
+assert(vec.readAccess()->size() == 2); // check size
 }
 
 TEST(ReadmeSafe, SharedPtrNoCopy)
 {
-safe::Safe<std::shared_ptr<std::string>> str("foo"); // std::shared_ptr managed internally
+safe::Safe<std::shared_ptr<std::vector<std::string>>> vec(2, "bar"); // std::shared_ptr managed internally
 {
-	auto view = str.copy(); // no copy, view is a std::shared_ptr<const std::string>, notice the const!
-	assert(*view == "foo");
+	auto view = vec.copy(); // no copy, view is a std::shared_ptr<const std::vector<std::string>>, notice the const!
+	assert(view->front() == "bar");
 } // view destroyed
-str.emplace("bar"); // content of the std::string pointed to by the std::shared_ptr gets replaced
-assert(**str.readAccess() == "bar");
+(*vec.writeAccess())->front() = "foo";
+assert((*vec.readAccess())->front() == "foo");
 }
 
 TEST(ReadmeSafe, SharedPtrCopy)
 {
-safe::Safe<std::shared_ptr<std::string>> str("foo");
-auto view = str.copy(); // again, no copy here
-assert(*view == "foo");
-str.emplace("bar"); // a new std::shared_ptr is constructed and assigned the value "bar"
-assert(*view == "foo"); // this is still true!
-assert(**str.readAccess() == "bar");
+safe::Safe<std::shared_ptr<std::vector<std::string>>> vec(2, "bar");
+auto view = vec.copy(); // again, no copy here
+assert(view->front() == "bar");
+(*vec.writeAccess())->front() = "foo"; // content of vec is copied into a new std::shared_vector, then the first element is modified
+assert(view->front() == "bar"); // this is still true!
+assert((*vec.readAccess())->front() == "foo"); // see ? vec does hold a difference instance than view
 }

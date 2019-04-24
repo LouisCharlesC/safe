@@ -18,33 +18,14 @@
 #include <utility>
 
 namespace safe {
-	namespace trick
-	{
-		template<typename ValueType>
-		void emplaceHelper(ValueType& value, const ValueType& arg)
-		{
-			value = arg;
-		}
-		template<typename ValueType>
-		void emplaceHelper(ValueType& value, ValueType&& arg)
-		{
-			value = std::move(arg);
-		}
-		template<typename ValueType, typename... Args>
-		void emplaceHelper(ValueType& value, Args&&... args)
-		{
-			value = ValueType(std::forward<Args>(args)...);
-		}
-	}  // namespace trick
-
 	/**
 	 * @brief Multi-threading utility class for variables that are meant
 	 * to be modified and read by several threads.
 	 * 
-	 * To replace the content of a Safe variable, call emplace(). To get a
-	 * copy of it, call copy(). To perform arbitrary operations of a Safe
-	 * variable, call writeAccess(). Call readAccess() to perform arbitrary read-only
-	 * operations.
+	 * To replace the content of a Safe variable, assign to it (using
+	 * operator =). To get a copy of it, call copy(). To perform
+	 * arbitrary operations of a Safe variable, call writeAccess(). Call
+	 * readAccess() to perform arbitrary read-only operations.
 	 * 
 	 * @tparam ValueType Type of the value object.
 	 * @tparam MutexType The type of mutex.
@@ -60,10 +41,10 @@ namespace safe {
 			m_value(default_construct_mutex, std::forward<Args>(args)...)
 		{}
 
-		template<typename... Args>
-		void emplace(Args&&... args)
+		template<typename Other>
+		Safe& operator=(Other&& other)
 		{
-			trick::emplaceHelper(*WriteAccess<LockableValue>(m_value), std::forward<Args>(args)...);
+			*WriteAccess<LockableValue>(m_value) = std::forward<Other>(other);
 		}
 
 		WriteAccess<LockableValue> writeAccess()
@@ -90,10 +71,10 @@ namespace safe {
 	/**
 	 * @brief Copy-on-write optimization for Safe objects of std::shared_ptr!
 	 * 
-	 * Calls to emplace() replace the existing Safe object if possible,
-	 * otherwise they allocate a new one. writeAccess() also allocates a
-	 * new object only if needed. readAccess() and copy() return a
-	 * std::shared_ptr, they never make copies.
+	 * Assignemnt (operator =) replaces the existing Safe object if
+	 * possible, otherwise they allocate a new one. writeAccess() also
+	 * allocates a new object only if needed. readAccess() and copy()
+	 * return a std::shared_ptr, they never make copies.
 	 * 
 	 * @tparam ValueType The type of std::shared_ptr's pointee.
 	 * @tparam MutexType The type of mutex.
@@ -109,8 +90,8 @@ namespace safe {
 			m_value(default_construct_mutex, std::make_shared<ValueType>(std::forward<Args>(args)...))
 		{}
 
-		template<typename... Args>
-		void emplace(Args&&... args)
+		template<typename Other>
+		Safe& operator=(Other&& other)
 		{
 			WriteAccess<LockableValue> valueAccess(m_value);
 
@@ -118,12 +99,12 @@ namespace safe {
 			if (!valueAccess->unique())
 			{
 				// Construct a new shared_ptr
-				*valueAccess = std::make_shared<ValueType>(std::forward<Args>(args)...);
+				*valueAccess = std::make_shared<ValueType>(std::forward<Other>(other));
 			}
 			else // no one owns a view on the value
 			{
 				// replace the contents of the shared_ptr
-				trick::emplaceHelper(**valueAccess, std::forward<Args>(args)...);
+				**valueAccess = std::forward<Other>(other);
 			}
 		}
 
