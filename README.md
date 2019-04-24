@@ -185,16 +185,40 @@ Here is a multithreading utility class template that I built on top of *safe*'s 
 ### Safe
 The Safe class template is a bit higher level than Lockable; it offers a nice interface to safely manage your variables in multithreaded code.
 
-Safe's interface provides thread-safe read and write to the variable. The **copy()** and **assign()** member functions are your basic tools to access the variable. *copy()* returns a copy of the variable and *assign()* replaces its content.
+Safe's interface provides thread-safe read and write to the variable. The **copy()** and **emplace()** member functions are your basic tools to access the variable. *copy()* returns a copy of the variable and *emplace()* replaces its content.
 
-Now imagine your variable is an std::vector and you are only interested in knowing its size. Are your going to copy the whole vector only to call size() on it ? Of course not. You will use the **readAccess()** member function provided by the Safe class! *readAccess()* returns a ReadAccess object to the variable, allowing you to perform any operation you want on it without incurring the cost of a copy. Likewise, if you only want to modify the first element of the vector, it would be a shame to replace it as a whole using the *assign()* function. It is much better to use the **writeAccess()** member function to get a WriteAccess object to the variable. That way, you can alter any part of the variable you like in isolation.
+```c++
+safe::Safe<std::vector<std::string>> vec;
+vec.emplace(2, "bar");
+auto copy = vec.copy();
+```
 
-Thread-safe *copy()*, *assign()*, *readAccess()* and *writeAccess()*: this is all the Safe class is about.
+Now imagine your variable is an std::vector and you are only interested in knowing its size. Are your going to copy the whole vector only to call size() on it ? Of course not. You will use the **readAccess()** member function provided by the Safe class! *readAccess()* returns a ReadAccess object to the variable, allowing you to perform any operation you want on it without incurring the cost of a copy. Likewise, if you only want to modify the first element of the vector, it would be a shame to replace it as a whole using the *emplace()* function. It is much better to use the **writeAccess()** member function to get a WriteAccess object to the variable. Using *readAccess()* and *writeAccess()*, you can inspect and alter any part of the variable in isolation.
+
+```c++
+vec.writeAccess()->front() = "foo";
+assert(vec.readAccess()->size() == 2);
+```
+
+Thread-safe *copy()*, *emplace()*, *readAccess()* and *writeAccess()*: this is all the Safe class is about.
 ##### Specialization for Safe<std::shared_ptr>
-Safe objects of std::shared_ptr are interesting because the reference counting apparatus of the shared pointer allows for a very nice optimization: copy-on-write. For this class template specialization, calls to *copy()* do not make a copy of the pointed-to variable, but they return a const std::shared_ptr to the variable. From there, a copy of the variable *may* happen, but only if this returned shared_ptr still exists when the next call to *assign()* or *writeAccess()* happens.  
-That is, if you  
-call *copy()*, destroy the returned shared_ptr and then call *assign()* or *writeAccess()*: no copy will ever be made.  
-On the other hand, if you  
-call *copy()* and then call *writeAccess()*: the call to *writeAccess()* will make a copy of the variable before returning a WriteAccess object for this copy.  
-Calls to *assign()* in this second scenario would construct a new instance of the variable and assign it the new value.  
+Safe objects of std::shared_ptr are interesting because the reference counting apparatus of the shared pointer allows for a very nice optimization: copy-on-write. For this class template specialization, calls to *copy()* do not make a copy of the pointed-to variable, but they return a const std::shared_ptr to the variable. From there, a copy of the variable *may* happen, but only if this returned shared_ptr still exists when the next call to *assign()* or *writeAccess()* happens. That is:
+```c++
+safe::Safe<std::shared_ptr<std::string>> str("foo"); // std::shared_ptr managed internally
+{
+	auto view = str.copy(); // no copy, view is a std::shared_ptr<const std::string>, notice the const!
+	assert(*view == "foo");
+} // view destroyed
+str.emplace("bar"); // content of the std::string pointed to by the std::shared_ptr gets replaced
+assert(**str.readAccess() == "bar");
+```
+but:
+```c++
+safe::Safe<std::shared_ptr<std::string>> str("foo");
+auto view = str.copy(); // again, no copy here
+assert(*view == "foo");
+str.emplace("bar"); // a new std::shared_ptr is constructed and assigned the value "bar"
+assert(*view == "foo"); // this is still true!
+assert(**str.readAccess() == "bar");
+```
 Calls to *readAccess()* never cause copies because the State's mutex is locked while the ReadAccess object exists, delaying calls to any other member function.

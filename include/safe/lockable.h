@@ -1,5 +1,5 @@
 /**
- * @file safe.h
+ * @file lockable.h
  * @author L.-C. C.
  * @brief 
  * @version 0.1
@@ -29,8 +29,8 @@ namespace safe
 	 * @brief Tag to use the mutex's default constructor when arguments
 	 * are provided to contruct the value object.
 	 */
-	struct default_construct_mutex_t {};
-	static constexpr default_construct_mutex_t default_construct_mutex;
+	struct DefaultConstructMutex {};
+	static constexpr DefaultConstructMutex default_construct_mutex;
 	
 	namespace trick
 	{
@@ -96,7 +96,6 @@ namespace safe
 		/// Type MutexType with reference removed, if present
 		using RemoveRefMutexType = typename std::remove_reference<MutexType>::type;
 
-	// public:
 		/**
 		 * @brief Manages a mutex and gives pointer-like access to a value
 		 * object.
@@ -226,7 +225,6 @@ namespace safe
 			ReferenceType m_value;
 		};
 
-	// private:
 		/// Reference-to-const ValueType.
 		using ConstValueReferenceType = const RemoveRefValueType&;
 		/// Reference to ValueType.
@@ -261,7 +259,7 @@ namespace safe
 		 * @param tag Indicates that the mutex should be default constructed.
 		 */
 		template<typename... ValueArgs>
-		explicit Lockable(default_construct_mutex_t, ValueArgs&&... valueArgs):
+		explicit Lockable(DefaultConstructMutex, ValueArgs&&... valueArgs):
 			m_mutex(),
 			m_value(std::forward<ValueArgs>(valueArgs)...)
 		{}

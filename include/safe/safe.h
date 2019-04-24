@@ -1,5 +1,5 @@
 /**
- * @file state.h
+ * @file safe.h
  * @author L.-C. C.
  * @brief 
  * @version 0.1
@@ -11,18 +11,37 @@
 
 #pragma once
 
-#include "safe/lockable.h"
+#include "lockable.h"
 
 #include <memory>
 #include <mutex>
 #include <utility>
 
 namespace safe {
+	namespace trick
+	{
+		template<typename ValueType>
+		void emplaceHelper(ValueType& value, const ValueType& arg)
+		{
+			value = arg;
+		}
+		template<typename ValueType>
+		void emplaceHelper(ValueType& value, ValueType&& arg)
+		{
+			value = std::move(arg);
+		}
+		template<typename ValueType, typename... Args>
+		void emplaceHelper(ValueType& value, Args&&... args)
+		{
+			value = ValueType(std::forward<Args>(args)...);
+		}
+	}  // namespace trick
+
 	/**
 	 * @brief Multi-threading utility class for variables that are meant
 	 * to be modified and read by several threads.
 	 * 
-	 * To replace the content of a Safe variable, call assign(). To get a
+	 * To replace the content of a Safe variable, call emplace(). To get a
 	 * copy of it, call copy(). To perform arbitrary operations of a Safe
 	 * variable, call writeAccess(). Call readAccess() to perform arbitrary read-only
 	 * operations.
@@ -30,7 +49,6 @@ namespace safe {
 	 * @tparam ValueType Type of the value object.
 	 * @tparam MutexType The type of mutex.
 	 */
-
 	template<typename ValueType, typename MutexType = DefaultMutex>
 	class Safe
 	{
@@ -43,9 +61,9 @@ namespace safe {
 		{}
 
 		template<typename... Args>
-		void assign(Args&&... args)
+		void emplace(Args&&... args)
 		{
-			*WriteAccess<LockableValue>(m_value) = ValueType(std::forward<Args>(args)...);
+			trick::emplaceHelper(*WriteAccess<LockableValue>(m_value), std::forward<Args>(args)...);
 		}
 
 		WriteAccess<LockableValue> writeAccess()
@@ -72,7 +90,7 @@ namespace safe {
 	/**
 	 * @brief Copy-on-write optimization for Safe objects of std::shared_ptr!
 	 * 
-	 * Calls to assign() replace the existing Safe object if possible,
+	 * Calls to emplace() replace the existing Safe object if possible,
 	 * otherwise they allocate a new one. writeAccess() also allocates a
 	 * new object only if needed. readAccess() and copy() return a
 	 * std::shared_ptr, they never make copies.
@@ -92,35 +110,35 @@ namespace safe {
 		{}
 
 		template<typename... Args>
-		void assign(Args&&... args)
+		void emplace(Args&&... args)
 		{
-			WriteAccess<LockableValue> stateAccess(m_value);
+			WriteAccess<LockableValue> valueAccess(m_value);
 
-			// If Handles on the Safe do exist
-			if (!stateAccess->unique())
+			// If views on the value do exist
+			if (!valueAccess->unique())
 			{
-				// Construct a new State_pointer
-				*stateAccess = std::make_shared<ValueType>(std::forward<Args>(args)...);
+				// Construct a new shared_ptr
+				*valueAccess = std::make_shared<ValueType>(std::forward<Args>(args)...);
 			}
-			else // no one owns a Handle on the Safe
+			else // no one owns a view on the value
 			{
 				// replace the contents of the shared_ptr
-				**stateAccess = ValueType(std::forward<Args>(args)...);
+				trick::emplaceHelper(**valueAccess, std::forward<Args>(args)...);
 			}
 		}
 
 		WriteAccess<LockableValue> writeAccess()
 		{
-			WriteAccess<LockableValue, std::unique_lock> stateAccess(m_value);
+			WriteAccess<LockableValue, std::unique_lock> valueAccess(m_value);
 
-			// If Handles on the Safe do exist
-			if (!stateAccess->unique())
+			// If views on the value do exist
+			if (!valueAccess->unique())
 			{
-				// Create a brand new copy of the state, it is now unique
-				*stateAccess = std::make_shared<ValueType>(**stateAccess);
+				// Create a brand new copy of the value, it is now unique
+				*valueAccess = std::make_shared<ValueType>(**valueAccess);
 			}
 
-			return {*stateAccess, *stateAccess.lock.release(), std::adopt_lock};
+			return {*valueAccess, *valueAccess.lock.release(), std::adopt_lock};
 		}
 
 		template<template<typename> class LockType=DefaultReadOnlyLock>

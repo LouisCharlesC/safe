@@ -1,5 +1,5 @@
 /**
- * @file safetraits.h
+ * @file traits.h
  * @author L.-C. C.
  * @brief 
  * @version 0.1

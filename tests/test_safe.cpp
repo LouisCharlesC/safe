@@ -25,7 +25,7 @@ public:
 
 TEST_F(TestSafe, GetThenSet) {
 	const auto value = safe.copy();
-	safe.assign(43);
+	safe.emplace(43);
 	const auto otherValue = safe.copy();
 
 	EXPECT_EQ(*value, 42);
@@ -43,7 +43,7 @@ TEST_F(TestSafe, GetThenUpdate) {
 
 TEST_F(TestSafe, SetDoesNotReallocateIfUnique) {
 	const auto ptr = safe.copy().get();
-	safe.assign(43);
+	safe.emplace(43);
 	const auto samePtr = safe.copy().get();
 
 	EXPECT_EQ(ptr, samePtr);
@@ -60,7 +60,7 @@ TEST_F(TestSafe, UpdateDoesNotReallocateIfUnique) {
 TEST_F(TestSafe, SetReallocatesIfNotUnique) {
 	const auto value = safe.copy();
 	const auto ptr = value.get();
-	safe.assign(43);
+	safe.emplace(43);
 	const auto otherPtr = safe.copy().get();
 
 	EXPECT_EQ(*value, 42);

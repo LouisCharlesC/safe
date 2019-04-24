@@ -10,11 +10,18 @@
  */
 
 #include "safe/lockable.h"
+#include "safe/safe.h"
 
+#include "gtest/gtest.h"
+#include "gmock/gmock.h"
+
+#include <cassert>
 #include <condition_variable>
 #include <iostream>
+#include <memory>
 #include <mutex>
 #include <string>
+#include <vector>
 
 void readmeWithoutSafeExample()
 {
@@ -109,27 +116,32 @@ safe::WriteAccess<safe::Lockable<int>, std::unique_lock> valueAccess(value);
 cv.wait(valueAccess.lock);
 }
 
-// void readmeReturnStdLockGuard()
-// {
-// class SharedCount
-// {
-// public:
-// 	void increment()
-// 	{
-// 		++*safe::WriteAccess<safe::Lockable<int>>(m_count); // onle-liner to increment m_count
-// 	}
+TEST(ReadmeSafe, Basic)
+{
+safe::Safe<std::vector<std::string>> vec;
+vec.emplace(2, "bar");
+auto copy = vec.copy();
+vec.writeAccess()->front() = "foo";
+assert(vec.readAccess()->size() == 2);
+}
 
-// private:
-// 	safe::Lockable<int> m_count;
-// };
+TEST(ReadmeSafe, SharedPtrNoCopy)
+{
+safe::Safe<std::shared_ptr<std::string>> str("foo"); // std::shared_ptr managed internally
+{
+	auto view = str.copy(); // no copy, view is a std::shared_ptr<const std::string>, notice the const!
+	assert(*view == "foo");
+} // view destroyed
+str.emplace("bar"); // content of the std::string pointed to by the std::shared_ptr gets replaced
+assert(**str.readAccess() == "bar");
+}
 
-// SharedCount count;
-// count.increment(); // thread safety managed inside the function call, simple but limited
-// {
-// // 	// thread safety managed by the access variable, efficient and flexible!
-// // 	auto&& valueAccess = count.get(); // capture the Access<std::lock_guard> object by rvalue reference
-// // 	// do anything you like with the variable!
-// // 	*valueAccess = 43; 
-// // 	--*valueAccess;
-// } // mutex automatically unlocked when scope is exited
-// }
+TEST(ReadmeSafe, SharedPtrCopy)
+{
+safe::Safe<std::shared_ptr<std::string>> str("foo");
+auto view = str.copy(); // again, no copy here
+assert(*view == "foo");
+str.emplace("bar"); // a new std::shared_ptr is constructed and assigned the value "bar"
+assert(*view == "foo"); // this is still true!
+assert(**str.readAccess() == "bar");
+}
