@@ -20,19 +20,35 @@ public:
 		safe(42)
 	{}
 
+	safe::Safe<int> safe;
+};
+class TestSafePtr : public testing::Test {
+public:
+	TestSafePtr():
+		safe(42)
+	{}
+
 	safe::Safe<std::shared_ptr<int>> safe;
 };
 
+TEST_F(TestSafePtr, GetThenSet) {
+	const auto value = safe.copy();
+	safe = 43;
+	const auto otherValue = safe.copy();
+
+	EXPECT_EQ(*value, 42);
+	EXPECT_EQ(*otherValue, 43);
+}
 TEST_F(TestSafe, GetThenSet) {
 	const auto value = safe.copy();
 	safe = 43;
 	const auto otherValue = safe.copy();
 
-	EXPECT_EQ(*value, 42);
-	EXPECT_EQ(*otherValue, 43);
+	EXPECT_EQ(value, 42);
+	EXPECT_EQ(otherValue, 43);
 }
 
-TEST_F(TestSafe, GetThenUpdate) {
+TEST_F(TestSafePtr, GetThenUpdate) {
 	const auto value = safe.copy();
 	**safe.writeAccess() = 43;
 	const auto otherValue = safe.copy();
@@ -40,8 +56,16 @@ TEST_F(TestSafe, GetThenUpdate) {
 	EXPECT_EQ(*value, 42);
 	EXPECT_EQ(*otherValue, 43);
 }
+TEST_F(TestSafe, GetThenUpdate) {
+	const auto value = safe.copy();
+	*safe.writeAccess() = 43;
+	const auto otherValue = safe.copy();
 
-TEST_F(TestSafe, SetDoesNotReallocateIfUnique) {
+	EXPECT_EQ(value, 42);
+	EXPECT_EQ(otherValue, 43);
+}
+
+TEST_F(TestSafePtr, SetDoesNotReallocateIfUnique) {
 	const auto ptr = safe.copy().get();
 	safe = 43;
 	const auto samePtr = safe.copy().get();
@@ -49,7 +73,7 @@ TEST_F(TestSafe, SetDoesNotReallocateIfUnique) {
 	EXPECT_EQ(ptr, samePtr);
 }
 
-TEST_F(TestSafe, UpdateDoesNotReallocateIfUnique) {
+TEST_F(TestSafePtr, UpdateDoesNotReallocateIfUnique) {
 	const auto ptr = safe.copy().get();
 	**safe.writeAccess() = 43;
 	const auto samePtr = safe.copy().get();
@@ -57,7 +81,7 @@ TEST_F(TestSafe, UpdateDoesNotReallocateIfUnique) {
 	EXPECT_EQ(ptr, samePtr);
 }
 
-TEST_F(TestSafe, SetReallocatesIfNotUnique) {
+TEST_F(TestSafePtr, SetReallocatesIfNotUnique) {
 	const auto value = safe.copy();
 	const auto ptr = value.get();
 	safe = 43;
@@ -68,7 +92,7 @@ TEST_F(TestSafe, SetReallocatesIfNotUnique) {
 	EXPECT_EQ(*otherPtr, 43);
 }
 
-TEST_F(TestSafe, UpdateReallocatesIfNotUnique) {
+TEST_F(TestSafePtr, UpdateReallocatesIfNotUnique) {
 	const auto value = safe.copy();
 	const auto ptr = value.get();
 	**safe.writeAccess() = 43;
@@ -79,7 +103,7 @@ TEST_F(TestSafe, UpdateReallocatesIfNotUnique) {
 	EXPECT_EQ(*otherPtr, 43);
 }
 
-TEST_F(TestSafe, SeveralGetsAreEqual) {
+TEST_F(TestSafePtr, SeveralGetsAreEqual) {
 	const auto ptr = safe.copy().get();
 	const auto value = safe.copy();
 	const auto samePtr = value.get();
