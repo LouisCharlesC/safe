@@ -1,12 +1,12 @@
 /**
  * @file safe.h
  * @author L.-C. C.
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2018-10-23
- * 
+ *
  * @copyright Copyright (c) 2018
- * 
+ *
  */
 
 #pragma once
@@ -21,12 +21,12 @@ namespace safe {
 	/**
 	 * @brief Multi-threading utility class for variables that are meant
 	 * to be modified and read by several threads.
-	 * 
+	 *
 	 * To replace the content of a Safe variable, assign to it (using
 	 * operator =). To get a copy of it, call copy(). To perform
 	 * arbitrary operations of a Safe variable, call writeAccess(). Call
 	 * readAccess() to perform arbitrary read-only operations.
-	 * 
+	 *
 	 * @tparam ValueType Type of the value object.
 	 * @tparam MutexType The type of mutex.
 	 */
@@ -45,6 +45,7 @@ namespace safe {
 		Safe& operator=(Other&& other)
 		{
 			*WriteAccess<LockableValue>(m_value) = std::forward<Other>(other);
+			return *this;
 		}
 
 		WriteAccess<LockableValue> writeAccess()
@@ -70,12 +71,12 @@ namespace safe {
 
 	/**
 	 * @brief Copy-on-write optimization for Safe objects of std::shared_ptr!
-	 * 
+	 *
 	 * Assignemnt (operator =) replaces the existing Safe object if
 	 * possible, otherwise they allocate a new one. writeAccess() also
 	 * allocates a new object only if needed. readAccess() and copy()
 	 * return a std::shared_ptr, they never make copies.
-	 * 
+	 *
 	 * @tparam ValueType The type of std::shared_ptr's pointee.
 	 * @tparam MutexType The type of mutex.
 	 */
@@ -83,7 +84,7 @@ namespace safe {
 	class Safe<std::shared_ptr<ValueType>, MutexType>
 	{
 		using LockableValue = Lockable<std::shared_ptr<ValueType>, MutexType>;
-		
+
 	public:
 		template<typename... Args>
 		Safe(Args&&... args):
@@ -106,6 +107,7 @@ namespace safe {
 				// replace the contents of the shared_ptr
 				**valueAccess = std::forward<Other>(other);
 			}
+			return *this;
 		}
 
 		WriteAccess<LockableValue> writeAccess()
