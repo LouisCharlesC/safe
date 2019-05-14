@@ -1,0 +1,59 @@
+language: generic
+
+dist: xenial
+
+matrix:
+    include:
+    - env: CXX=g++-8 CC=gcc-8
+      addons:
+        apt:
+          packages:
+            - g++-8
+          sources: &sources
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-xenial-8
+            - llvm-toolchain-xenial-7
+            - llvm-toolchain-xenial-6.0
+    - env: CXX=g++-7 CC=gcc-7
+      addons:
+        apt:
+          packages:
+            - g++-7
+          sources: *sources
+    - env: CXX=g++-6 CC=gcc-6
+      addons:
+        apt:
+          packages:
+            - g++-6
+          sources: *sources
+    - env: CXX=clang++-8 CC=clang-8
+      addons:
+        apt:
+          packages:
+            - clang-8
+            - libc++-8-dev
+            - libc++abi-8-dev
+          sources: *sources
+    - env: CXX=clang++-7 CC=clang-7
+      addons:
+        apt:
+          packages:
+            - clang-7
+            - libc++-7-dev
+            - libc++abi-7-dev
+          sources: *sources
+
+
+install:
+  - if [[ "${CXX}" == clang* ]]; then export CXXFLAGS="-stdlib=libc++"; fi
+  - git clone --depth=1 https://github.com/google/googletest
+  - mkdir -p googletest/build && cd googletest/build
+  - cmake ..
+  - sudo make -j4 install
+  - cd ../..
+
+script:
+  - mkdir -p build && cd build
+  - cmake ..
+  - make
+  - ./tests
