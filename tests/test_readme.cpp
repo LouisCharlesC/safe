@@ -127,7 +127,7 @@ assert(vec.readAccess()->size() == 2); // check size
 
 TEST(ReadmeSafe, SharedPtrNoCopy)
 {
-safe::Safe<std::shared_ptr<std::vector<std::string>>> vec(2, "bar"); // std::shared_ptr managed internally
+safe::Safe<std::shared_ptr<std::vector<std::string>>> vec(2, "bar"); // the std::shared_ptr is managed internally
 {
 	auto view = vec.copy(); // no copy, view is a std::shared_ptr<const std::vector<std::string>>, notice the const!
 	assert(view->front() == "bar");
@@ -141,7 +141,7 @@ TEST(ReadmeSafe, SharedPtrCopy)
 safe::Safe<std::shared_ptr<std::vector<std::string>>> vec(2, "bar");
 auto view = vec.copy(); // again, no copy here
 assert(view->front() == "bar");
-(*vec.writeAccess())->front() = "foo"; // content of vec is copied into a new std::shared_vector, then the first element is modified
+(*vec.writeAccess())->front() = "foo"; // the copy happens here! the content of vec is copied into a brand new std::shared_vector, then the first element is modified
 assert(view->front() == "bar"); // this is still true!
 assert((*vec.readAccess())->front() == "foo"); // see ? vec does hold a difference instance than view
 }

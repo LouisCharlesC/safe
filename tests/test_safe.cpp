@@ -48,6 +48,15 @@ TEST_F(TestSafe, GetThenSet) {
 	EXPECT_EQ(otherValue, 43);
 }
 
+TEST_F(TestSafePtr, OperatorEqualReturn) {
+	const auto ptrSafe = &(safe = 43);
+	EXPECT_EQ(ptrSafe, &safe);
+}
+TEST_F(TestSafe, OperatorEqualReturn) {
+	const auto ptrSafe = &(safe = 43);
+	EXPECT_EQ(ptrSafe, &safe);
+}
+
 TEST_F(TestSafePtr, GetThenUpdate) {
 	const auto value = safe.copy();
 	**safe.writeAccess() = 43;
