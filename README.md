@@ -1,5 +1,7 @@
 # Make your multithreaded code safe and crystal clear!
 *All variables shared by multiple threads should be wrapped in a safe object.*
+
+[![Build Status](https://travis-ci.org/LouisCharlesC/safe.svg?branch=master)](https://travis-ci.org/LouisCharlesC/safe)
 ## Contents
 *safe* is a header-only library that helps you get your multithreaded code safe and understandable.  
 This readme will walk you through the important features of the library using several code examples. Read on, and enjoy safe multithreading!
