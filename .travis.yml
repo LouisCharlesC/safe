@@ -56,4 +56,4 @@ script:
   - mkdir -p build && cd build
   - cmake ..
   - make
-  - ./tests/tests
+  - ctest --output-on-failure

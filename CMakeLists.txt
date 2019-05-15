@@ -21,6 +21,7 @@ include_directories(include)
 
 find_package(GTest QUIET)
 if(GTEST_FOUND)
+    enable_testing()
     add_subdirectory("tests")
 endif()
 
