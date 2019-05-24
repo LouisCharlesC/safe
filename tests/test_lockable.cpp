@@ -21,9 +21,8 @@
 class DummyMutex
 {
 public:
-	MOCK_METHOD0(lock, void());
-	MOCK_METHOD0(try_lock, bool());
-	MOCK_METHOD0(unlock, void());
+	void lock() {}
+	void unlock() {}
 };
 template<typename>
 class DummyLock
