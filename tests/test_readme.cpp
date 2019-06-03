@@ -13,7 +13,6 @@
 #include "safe/safe.h"
 
 #include "gtest/gtest.h"
-#include "gmock/gmock.h"
 
 #include <cassert>
 #include <condition_variable>

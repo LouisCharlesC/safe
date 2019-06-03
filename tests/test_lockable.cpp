@@ -12,7 +12,6 @@
 #include "safe/lockable.h"
 
 #include "gtest/gtest.h"
-#include "gmock/gmock.h"
 
 #include <condition_variable>
 #include <mutex>
@@ -21,9 +20,8 @@
 class DummyMutex
 {
 public:
-	MOCK_METHOD0(lock, void());
-	MOCK_METHOD0(try_lock, bool());
-	MOCK_METHOD0(unlock, void());
+	void lock() {}
+	void unlock() {}
 };
 template<typename>
 class DummyLock
