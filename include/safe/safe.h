@@ -18,6 +18,26 @@
 #include <utility>
 
 namespace safe {
+	namespace {
+		namespace impl
+		{
+			template<typename ValueType>
+			void assign(ValueType& value, const ValueType& other)
+			{
+				value = other;
+			}
+			template<typename ValueType>
+			void assign(ValueType& value, ValueType&& other)
+			{
+				value = std::move(other);
+			}
+			template<typename ValueType, typename... Args>
+			void assign(ValueType& value, Args&&... args)
+			{
+				value = ValueType(std::forward<Args>(args)...);
+			}
+		}
+	}
 	/**
 	 * @brief Multi-threading utility class for variables that are meant
 	 * to be modified and read by several threads.
@@ -41,11 +61,10 @@ namespace safe {
 			m_value(default_construct_mutex, std::forward<Args>(args)...)
 		{}
 
-		template<typename Other>
-		Safe& operator=(Other&& other)
+		template<typename... Args>
+		void assign(Args&&... args)
 		{
-			*WriteAccess<LockableValue>(m_value) = std::forward<Other>(other);
-			return *this;
+			impl::assign(*WriteAccess<LockableValue>(m_value), std::forward<Args>(args)...);
 		}
 
 		WriteAccess<LockableValue> writeAccess()
@@ -86,13 +105,20 @@ namespace safe {
 		using LockableValue = Lockable<std::shared_ptr<ValueType>, MutexType>;
 
 	public:
+		Safe(std::unique_ptr<ValueType>&& other):
+			m_value(default_construct_mutex, std::move(other))
+		{}
 		template<typename... Args>
 		Safe(Args&&... args):
 			m_value(default_construct_mutex, std::make_shared<ValueType>(std::forward<Args>(args)...))
 		{}
 
-		template<typename Other>
-		Safe& operator=(Other&& other)
+		void assign(std::unique_ptr<ValueType>&& other)
+		{
+			*WriteAccess<LockableValue>(m_value) = std::move(other);
+		}
+		template<typename... Args>
+		void assign(Args&&... args)
 		{
 			WriteAccess<LockableValue> valueAccess(m_value);
 
@@ -100,14 +126,13 @@ namespace safe {
 			if (!valueAccess->unique())
 			{
 				// Construct a new shared_ptr
-				*valueAccess = std::make_shared<ValueType>(std::forward<Other>(other));
+				*valueAccess = std::make_shared<ValueType>(std::forward<Args>(args)...);
 			}
 			else // no one owns a view on the value
 			{
 				// replace the contents of the shared_ptr
-				**valueAccess = std::forward<Other>(other);
+				impl::assign(**valueAccess, std::forward<Args>(args)...);
 			}
-			return *this;
 		}
 
 		WriteAccess<LockableValue> writeAccess()

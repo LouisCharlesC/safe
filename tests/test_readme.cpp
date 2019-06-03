@@ -119,7 +119,7 @@ cv.wait(valueAccess.lock);
 TEST(ReadmeSafe, Basic)
 {
 safe::Safe<std::vector<std::string>> vec;
-vec = std::vector<std::string>(2, "bar"); // assign new vector
+vec.assign(2, "bar"); // assign new vector
 auto copy = vec.copy(); // get a copy
 vec.writeAccess()->front() = "foo"; // replace front only
 assert(vec.readAccess()->size() == 2); // check size
