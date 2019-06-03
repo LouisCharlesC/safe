@@ -187,22 +187,22 @@ Here is a multithreading utility class template that I built on top of *safe*'s 
 ### Safe
 The Safe class template is a bit higher level than Lockable; it offers a nice interface to safely manage your variables in multithreaded code.
 
-Safe's interface provides thread-safe read and write to the variable. The **copy()** and **assign()** member functions are your basic tools to access the variable. *copy()* returns a copy of the variable and *assign()* replaces its content.
+Safe's interface provides thread-safe read and write to the variable. The **copy()** and **emplace()** member functions are your basic tools to access the variable. *copy()* returns a copy of the variable and *emplace()* replaces its content.
 
 ```c++
 safe::Safe<std::vector<std::string>> vec;
-vec.assign(2, "bar"); // replace vector
+vec = std::vector<std::string>(2, "bar"); // assign new vector
 auto copy = vec.copy(); // get a copy
 ```
 
-Now imagine your variable is an std::vector and you are only interested in knowing its size. Are you going to copy the whole vector only to call size() on it ? Of course not. You will use the **readAccess()** member function provided by the Safe class! *readAccess()* returns a ReadAccess object to the variable, allowing you to perform any operation you want on it without incurring the cost of a copy. Likewise, if you only want to modify the first element of the vector, it would be a shame to replace it as a whole using the *assign()* function. It is much better to use the **writeAccess()** member function to get a WriteAccess object to the variable. Using *readAccess()* and *writeAccess()*, you can inspect and alter any part of the variable in isolation.
+Now imagine your variable is an std::vector and you are only interested in knowing its size. Are your going to copy the whole vector only to call size() on it ? Of course not. You will use the **readAccess()** member function provided by the Safe class! *readAccess()* returns a ReadAccess object to the variable, allowing you to perform any operation you want on it without incurring the cost of a copy. Likewise, if you only want to modify the first element of the vector, it would be a shame to replace it as a whole using the *emplace()* function. It is much better to use the **writeAccess()** member function to get a WriteAccess object to the variable. Using *readAccess()* and *writeAccess()*, you can inspect and alter any part of the variable in isolation.
 
 ```c++
 vec.writeAccess()->front() = "foo"; // replace front only
 assert(vec.readAccess()->size() == 2); // check size
 ```
 
-Thread-safe *copy()*, *assign()*, *readAccess()* and *writeAccess()*: this is all the Safe class is about.
+Thread-safe *copy()*, *operator=()*, *readAccess()* and *writeAccess()*: this is all the Safe class is about.
 ##### Specialization for Safe\<std::shared_ptr\>
 Safe objects of std::shared_ptr are interesting because the reference counting apparatus of the shared pointer allows for a very nice optimization: copy-on-write. For this class template specialization, calls to *copy()* do not make a copy of the pointed-to variable, but they return a const std::shared_ptr to the variable. From there, a copy of the variable *may* happen, but only if this returned shared_ptr still exists when the next call to *assign()* or *writeAccess()* happens. That is:
 ```c++
@@ -221,6 +221,6 @@ auto view = vec.copy(); // again, no copy here
 assert(view->front() == "bar");
 (*vec.writeAccess())->front() = "foo"; // the copy happens here! the content of vec is copied into a brand new std::shared_vector, then the first element is modified
 assert(view->front() == "bar"); // this is still true!
-assert((*vec.readAccess())->front() == "foo"); // see ? vec does hold a difference instance than view
+assert((*vec.readAccess())->front() != "foo"); // see ? vec does hold a difference instance than view
 ```
-Calls to *readAccess()* never cause copies because the mutex is locked while the ReadAccess object exists, serializing calls to any member function.
+Calls to *readAccess()* never cause copies because the mutex is locked while the ReadAccess object exists, delaying calls to any other member function.
