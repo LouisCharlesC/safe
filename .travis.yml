@@ -4,16 +4,22 @@ dist: xenial
 
 matrix:
     include:
-    - env: CXX=g++-8 CC=gcc-8
+    - env: CXX=g++-9 CC=gcc-9
       addons:
         apt:
           packages:
-            - g++-8
+            - g++-9
           sources: &sources
             - ubuntu-toolchain-r-test
             - llvm-toolchain-xenial-8
             - llvm-toolchain-xenial-7
             - llvm-toolchain-xenial-6.0
+    - env: CXX=g++-8 CC=gcc-8
+      addons:
+        apt:
+          packages:
+            - g++-8
+          sources: *sources
     - env: CXX=g++-7 CC=gcc-7
       addons:
         apt:
