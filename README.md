@@ -1,5 +1,5 @@
 # Make your multithreaded code safe and crystal clear!
-*All variables shared by multiple threads should be wrapped in a safe object.*
+*All variables protected by a mutex should be wrapped in a safe object.*
 
 [![Build Status](https://travis-ci.org/LouisCharlesC/safe.svg?branch=master)](https://travis-ci.org/LouisCharlesC/safe)
 ## Contents
