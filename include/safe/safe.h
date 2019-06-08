@@ -42,12 +42,12 @@ namespace safe {
 	 * @brief Multi-threading utility class for variables that are meant
 	 * to be modified and read by several threads.
 	 *
-	 * To replace the content of a Safe variable, assign to it (using
-	 * operator =). To get a copy of it, call copy(). To perform
-	 * arbitrary operations of a Safe variable, call writeAccess(). Call
-	 * readAccess() to perform arbitrary read-only operations.
+	 * To replace the content of a Safe variable, assign() to it. To get
+	 * a copy of it, call copy(). To perform arbitrary operations of a
+	 * Safe variable, call writeAccess(). Call readAccess() to perform
+	 * arbitrary read-only operations.
 	 *
-	 * @tparam ValueType Type of the value object.
+	 * @tparam ValueType The type of the value object.
 	 * @tparam MutexType The type of mutex.
 	 */
 	template<typename ValueType, typename MutexType = DefaultMutex>
@@ -91,10 +91,13 @@ namespace safe {
 	/**
 	 * @brief Copy-on-write optimization for Safe objects of std::shared_ptr!
 	 *
-	 * Assignemnt (operator =) replaces the existing Safe object if
-	 * possible, otherwise they allocate a new one. writeAccess() also
-	 * allocates a new object only if needed. readAccess() and copy()
-	 * return a std::shared_ptr, they never make copies.
+	 * In this specialization, calls to copy() do not necessarily cause
+	 * a copy of the value object to happen. copy() returns a
+	 * std::shared_ptr<const ValueType>, subsequent calls to assign() and
+	 * writeAccess() might cause a copy to happen, but only if it is
+	 * unsafe to directly assign to the value object (this is the
+	 * copy-on-write optimization). Calls to readAccess() never make
+	 * copies.
 	 *
 	 * @tparam ValueType The type of std::shared_ptr's pointee.
 	 * @tparam MutexType The type of mutex.
@@ -122,13 +125,14 @@ namespace safe {
 		{
 			WriteAccess<LockableValue> valueAccess(m_value);
 
-			// If views on the value do exist
+			// If the shared_ptr is not unique (it is currently shared)
 			if (!valueAccess->unique())
 			{
-				// Construct a new shared_ptr
+				// Construct a new shared_ptr, copying the current value
 				*valueAccess = std::make_shared<ValueType>(std::forward<Args>(args)...);
+				// this newly constructed shared_ptr is now unique
 			}
-			else // no one owns a view on the value
+			else // the shared_ptr is not currently shared
 			{
 				// replace the contents of the shared_ptr
 				impl::assign(**valueAccess, std::forward<Args>(args)...);
@@ -139,11 +143,12 @@ namespace safe {
 		{
 			WriteAccess<LockableValue, std::unique_lock> valueAccess(m_value);
 
-			// If views on the value do exist
+			// If the shared pointer is currently shared
 			if (!valueAccess->unique())
 			{
-				// Create a brand new copy of the value, it is now unique
+				// Construct a new shared_ptr, copying the current value
 				*valueAccess = std::make_shared<ValueType>(**valueAccess);
+				// this newly constructed shared_ptr is now unique
 			}
 
 			return {*valueAccess, *valueAccess.lock.release(), std::adopt_lock};
@@ -158,6 +163,7 @@ namespace safe {
 		template<template<typename> class LockType=DefaultReadOnlyLock>
 		std::shared_ptr<const ValueType> copy() const
 		{
+			// return a shared_ptr with read-only access
 			return std::const_pointer_cast<const ValueType>(*ReadAccess<LockableValue, LockType>(m_value));
 		}
 
