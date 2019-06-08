@@ -1,9 +1,9 @@
 # Make your multithreaded code safe and crystal clear!
-*All variables protected by a mutex should be wrapped in a safe object.*
+*Every variable protected by a mutex should be wrapped with safe.*
 
 [![Build Status](https://travis-ci.org/LouisCharlesC/safe.svg?branch=master)](https://travis-ci.org/LouisCharlesC/safe)
 ## Contents
-*safe* is a header-only library that helps you get your multithreaded code safe and understandable.  
+*safe* is a header-only library that helps you get your multithreaded code safer and more understandable.  
 This readme will walk you through the important features of the library using several code examples. Read on, and enjoy safe multithreading!
 - [Background](#Background)
 - [Overview](#Overview)
@@ -11,7 +11,7 @@ This readme will walk you through the important features of the library using se
 - [Main features](#Main-features)
 - [Higher-level interface](#Higher-level-interface)
 ## Background
-*safe* aims at preventing common multithread mistakes by providing tools that complement the C++ standard library. Using *safe*, you will find it much easier to write correct multithreaded code, and your code will be easier to understand.
+*safe* aims at preventing common multithread mistakes by providing tools that complement the C++ standard library. Using *safe*, you will find it much easier to protect a variable using a mutex, and your code will be easier to understand.
 
 In multithreaded code, there is one rule: *avoid data races*. A data race exists when more than one thread access the same variable, at least one of these accesses modifies the variable and the accesses are not serialized. It is impossible to reason about the correctness of a program in the presence of data races. To avoid data races, accesses to a shared variable must be serialized using a synchronization mechanism like a mutex. Since C++11, the standard library provides such mechanisms, like std::mutex, along with tools to facilitate their usage, like std::lock_guard and std::unique_lock.
 
@@ -56,6 +56,9 @@ std::cout << foo.unsafe() << std::endl; // <-- unprotected access: clearly expre
 * Access object: a Lock object that also gives pointer-like access to the value object.
 * Access mode: Access objects can be created with read-write or read-only behavior. Read-only Access objects are especially useful to enforce the read-only nature of std::shared_lock (C++14) and boost::shared_lock_guard.
 ## Basic interface
+The basic interface is composed of the Lockable and Access class templates. They are meant to replace the mutexes and locks in your code. To use the basic interface, simple follow the steps below.  
+The basic interface does not offer much more functionality than std::mutex and std::lock_guard do, they simply make their usage safer. It can be effectively used as-is, and it can also be the building for higher level constructs. The Safe class template is such a higher level abstraction, it automates some common operations like assignment and copy. You can learn more about the Safe class template [here](#Higher-level-interface).  
+Here is the simplest way to replace mutexes and locks by *safe* objects:
 ### Include the header-only library
 ```c++
 #include "safe/lockable.h"
@@ -106,7 +109,7 @@ See [this section](#With-legacy-code) for an example of using reference types to
 #### Flexibly construct the value object and mutex
 Just remember: the first argument to a Lockable constructor is used to construct the mutex, the other arguments are used for the value object.
 
-*Note: when constructing a Lockable object and the mutex is default constructed but the value object is not, you must pass the safe::default_construct_mutex_ tag. You can also pass an empty set of curly brackets {}.*
+*Note: when constructing a Lockable object and the mutex is default constructed but the value object is not, you must pass the safe::default_construct_mutex tag or a set of curly brackets {} as the first constructor argument.*
 
 Examples:
 ```c++
@@ -125,16 +128,16 @@ safe::Lockable<int> value; // given a safe object
 value.mutex().lock(); // with the mutex already locked...
 // Because the mutex is already locked, you need to pass the std::adopt_lock tag to std::lock_guard when you construct your Access object.
 
-// Fortunately, all arguments passed to the Safe::writeAccess() function are forwarded to the lock constructor.
+// Fortunately, all arguments passed to the Safe::writeAccess() function and safe::WriteAccess constructor are forwarded to the lock constructor.
 safe::WriteAccess<safe::Lockable<int>> valueAccess(value, std::adopt_lock);
 ```
 ### 3. Even more safety!
 #### Choose the access mode that suits each access
-Once you construct a Lockable object, you fix the type of the mutex you will use. From there, you will create an Access object every time you want to operate on the value object. For each of these accesses, you can choose whether the access is read-write or read-only.
+Once you construct a Lockable object, you fix the type of mutex you will use. From there, you will create an Access object every time you want to operate on the value object. For each of these accesses, you can choose whether the access is read-write or read-only.
 Use the ReadAccess and WriteAccess aliases to easily construct read-only and read-write Access objects.
 
 #### Force read-only access with shared mutexes and shared_locks
-Shared mutexes and shared locks allow multiple reading threads to access the value object simultaneously. Unfortunately, using only mutexes and locks, the read-only restriction is not guaranteed to be applied. That is, it is possible to lock a mutex in shared mode and write to the shared value. With *safe*, you can enforce read-only access when using shared locking by using ReadAccess objects.
+Shared mutexes and shared locks allow multiple reading threads to access the value object simultaneously. Unfortunately, using only mutexes and locks, the read-only restriction is not guaranteed to be applied. That is, it is possible to lock a mutex in shared mode and write to the shared value. With *safe*, you can enforce read-only access when using shared locking by using ReadAccess objects. To do so, specialize the 
 ### 4. Compatibility
 #### With legacy code
 You can use *safe* with old-style unsafe code that uses the out-of-fashion separate mutex and value idiom. Imagine you are provided with the typical mutex and int. *safe* allows you to wrap these variables, without having to modify the existing code. Enjoy the safety and avoid the headaches:
@@ -165,16 +168,14 @@ Here is the full declaration of the Access class:
 ```c++
 template<template<typename> class LockType, AccessMode Mode> class Access;
 ```
-Don't be daunted be the looks of the first template parameter, it only means that the LockType must be a class template with one template parameter.
-
-The second template parameter is the customization point you can use to change the behavior of you Access objects.  
-As already mentioned, the AccessMode template parameter defines the access mode for the Access objects: either read-write or read-only. A trait class exists in safe/traits.h to tell *safe* whether the lock is read-write or read-only:
-- If no specialization of the type trait exists for LockType, the lock is read-write.
+Don't be daunted be the looks of the first template parameter, it only means that the LockType must be a class template with one template parameter. The second template parameter is used to decide whether the Access object should allow read-write access or read-only access to the value object.  
+A trait class exists in safe to allow you to force a compilation error when constructing an Access object in read-write mode using a given type of lock object. For instance, this is desirable for shared locks like std::shared_lock. safe::LockTraits is a trait class that can be specialized for this pupose. Here is how the trait works:
+- If no specialization of the type trait exists for a lock type, the lock can be used with read-write and read-only Access objects.
 - If a specialization exists, it must declare the IsReadOnly boolean variable.
-  - If IsReadOnly is true, the lock is read-only: using Mode = AccessMode::ReadWrite will fail to compile.
-  - If IsReadOnly is false, the lock is read-write.
+  - If IsReadOnly is true, the lock is read-only: constructinfg an Access object with this lock using Mode = AccessMode::ReadWrite will fail to compile.
+  - If IsReadOnly is false, the result is the same as if no specialization exists.
 
-It is useful to declare shared locks as read-only. Here is how to do it (you will find this exact code snippet in safe/traits.h):
+It is useful to declare shared locks as read-only. Here is how to specialize the trait for std::shared_lock (you will find this exact code snippet in safe/traits.h):
 ```c++
 template<>
 struct LockTraits<std::shared_lock>
@@ -183,7 +184,7 @@ struct LockTraits<std::shared_lock>
 };
 ```
 ## Higher-level interface
-Here is a multithreading utility class template that I built on top of *safe*'s basic interface: Safe.
+Here is a multithreading utility class template that I built on top of *safe*'s basic interface: Safe. You can use Safe if you find it useful, and you can use it as inspiration for your own higher level safe classes!
 ### Safe
 The Safe class template is a bit higher level than Lockable; it offers a nice interface to safely manage your variables in multithreaded code.
 
