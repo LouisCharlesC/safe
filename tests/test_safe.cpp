@@ -12,7 +12,6 @@
 #include "safe/safe.h"
 
 #include "gtest/gtest.h"
-#include "gmock/gmock.h"
 
 class TestSafe : public testing::Test {
 public:
