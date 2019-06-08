@@ -32,7 +32,7 @@ public:
 
 TEST_F(TestSafePtr, GetThenSet) {
 	const auto value = safe.copy();
-	safe = 43;
+	safe.assign(43);
 	const auto otherValue = safe.copy();
 
 	EXPECT_EQ(*value, 42);
@@ -40,20 +40,11 @@ TEST_F(TestSafePtr, GetThenSet) {
 }
 TEST_F(TestSafe, GetThenSet) {
 	const auto value = safe.copy();
-	safe = 43;
+	safe.assign(43);
 	const auto otherValue = safe.copy();
 
 	EXPECT_EQ(value, 42);
 	EXPECT_EQ(otherValue, 43);
-}
-
-TEST_F(TestSafePtr, OperatorEqualReturn) {
-	const auto ptrSafe = &(safe = 43);
-	EXPECT_EQ(ptrSafe, &safe);
-}
-TEST_F(TestSafe, OperatorEqualReturn) {
-	const auto ptrSafe = &(safe = 43);
-	EXPECT_EQ(ptrSafe, &safe);
 }
 
 TEST_F(TestSafePtr, GetThenUpdate) {
@@ -75,7 +66,7 @@ TEST_F(TestSafe, GetThenUpdate) {
 
 TEST_F(TestSafePtr, SetDoesNotReallocateIfUnique) {
 	const auto ptr = safe.copy().get();
-	safe = 43;
+	safe.assign(43);
 	const auto samePtr = safe.copy().get();
 
 	EXPECT_EQ(ptr, samePtr);
@@ -92,7 +83,7 @@ TEST_F(TestSafePtr, UpdateDoesNotReallocateIfUnique) {
 TEST_F(TestSafePtr, SetReallocatesIfNotUnique) {
 	const auto value = safe.copy();
 	const auto ptr = value.get();
-	safe = 43;
+	safe.assign(43);
 	const auto otherPtr = safe.copy().get();
 
 	EXPECT_EQ(*value, 42);
