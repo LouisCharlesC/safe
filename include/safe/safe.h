@@ -50,7 +50,7 @@ namespace safe {
 	 * @tparam ValueType The type of the value object.
 	 * @tparam MutexType The type of mutex.
 	 */
-	template<typename ValueType, typename MutexType = DefaultMutex>
+	template<typename ValueType, typename MutexType = DefaultMutex, template<typename> class ReadOnlyLockType=DefaultReadOnlyLock>
 	class Safe
 	{
 		using LockableValue = Lockable<ValueType, MutexType>;
@@ -102,8 +102,8 @@ namespace safe {
 	 * @tparam ValueType The type of std::shared_ptr's pointee.
 	 * @tparam MutexType The type of mutex.
 	 */
-	template<typename ValueType, typename MutexType>
-	class Safe<std::shared_ptr<ValueType>, MutexType>
+	template<typename ValueType, typename MutexType, template<typename> class ReadOnlyLockType>
+	class Safe<std::shared_ptr<ValueType>, MutexType, ReadOnlyLockType>
 	{
 		using LockableValue = Lockable<std::shared_ptr<ValueType>, MutexType>;
 
@@ -151,20 +151,18 @@ namespace safe {
 				// this newly constructed shared_ptr is now unique
 			}
 
-			return {*valueAccess, *valueAccess.lock.release(), std::adopt_lock};
+			return {valueAccess};
 		}
 
-		template<template<typename> class LockType=DefaultReadOnlyLock>
-		ReadAccess<LockableValue, LockType> readAccess() const
+		ReadAccess<LockableValue, ReadOnlyLockType> readAccess() const
 		{
 			return {m_value};
 		}
 
-		template<template<typename> class LockType=DefaultReadOnlyLock>
 		std::shared_ptr<const ValueType> copy() const
 		{
 			// return a shared_ptr with read-only access
-			return std::const_pointer_cast<const ValueType>(*ReadAccess<LockableValue, LockType>(m_value));
+			return std::const_pointer_cast<const ValueType>(*ReadAccess<LockableValue, ReadOnlyLockType>(m_value));
 		}
 
 	private:

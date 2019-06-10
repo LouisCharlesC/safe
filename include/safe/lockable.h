@@ -181,6 +181,25 @@ namespace safe
 			{}
 
 			/**
+			 * @brief Construct an Access object from another one.
+			 * OtherLockType must implement release() like std::unique_lock
+			 * does.
+			 * 
+			 * @tparam OtherLockType Deduced from otherAccess.
+			 * @tparam OtherMode Deduced from otherAccess.
+			 * @tparam OtherLockArgs Deduced from otherLockArgs.
+			 * @param otherAccess The Access object to construct from.
+			 * @param otherLockArgs Other arguments needed to construct the lock
+			 * object.
+			 */
+			template<template<typename> class OtherLockType, AccessMode OtherMode, typename... OtherLockArgs>
+			Access(Access<OtherLockType, OtherMode>& otherAccess, OtherLockArgs&&... otherLockArgs):
+				Access(*otherAccess, *otherAccess.lock.release(), std::adopt_lock, std::forward<OtherLockArgs>(otherLockArgs)...)
+			{
+				static_assert(OtherMode == AccessMode::ReadWrite || OtherMode == Mode, "Cannot construct a ReadWrite Access object from a ReadOnly one!");
+			}
+
+			/**
 			 * @brief Const accessor to the value.
 			 * @return ConstPointerType Const pointer to the protected value.
 			 */
@@ -261,7 +280,7 @@ namespace safe
 		template<typename... ValueArgs>
 		explicit Lockable(DefaultConstructMutex, ValueArgs&&... valueArgs):
 			m_mutex(),
-			m_value(std::forward<ValueArgs>(valueArgs)...)
+			m_value{std::forward<ValueArgs>(valueArgs)...}
 		{}
 		/**
 		 * @brief Construct a Lockable object, perfect forwarding the first
@@ -276,7 +295,7 @@ namespace safe
 		template<typename MutexArg, typename... ValueArgs>
 		explicit Lockable(MutexArg&& mutexArg, ValueArgs&&... valueArgs):
 			m_mutex(std::forward<MutexArg>(mutexArg)),
-			m_value(std::forward<ValueArgs>(valueArgs)...)
+			m_value{std::forward<ValueArgs>(valueArgs)...}
 		{}
 
 		/**

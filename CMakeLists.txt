@@ -14,7 +14,7 @@ if (DOXYGEN_FOUND)
 	configure_file(${DOXYFILE_TO_CONFIGURE} ${DOXYFILE} @ONLY)
 
 	add_custom_target(doc COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYFILE})
-endif()
+endif(DOXYGEN_FOUND)
 
 include_directories(include)
 
