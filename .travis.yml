@@ -20,9 +20,11 @@ jobs:
       compiler: clang
 install:
 - git clone https://github.com/onqtam/doctest.git
-- mkdir -p doctest/build && cd doctest/build
+- mkdir -p doctest/build
+- cd doctest/build
 - cmake ..
 - sudo make -j4 install
+- cd ../..
 script:
 - mkdir -p build/install; mkdir build/tests
 - cd build/install
