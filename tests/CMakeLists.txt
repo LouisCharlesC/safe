@@ -1,4 +1,4 @@
-# cmake_minimum_required(VERSION 3.13.4)
+cmake_minimum_required(VERSION 3.9.2)
 
 project(safe_tests LANGUAGES CXX)
 
@@ -18,7 +18,7 @@ set_target_properties(
 	${TEST_MAIN}
 	PROPERTIES
 		CXX_STANDARD 17
-		CXX_EXTENSIONS NO
+		# CXX_EXTENSIONS YES
 )
 
 add_test(NAME ${PROJECT_NAME}.${TEST_MAIN} COMMAND ${TEST_MAIN})
