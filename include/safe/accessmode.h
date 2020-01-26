@@ -25,23 +25,23 @@ namespace safe
 	};
 
 	template<template<typename> class LockType>
-	struct LockTraits
+	struct AccessTrait
 	{
 		static constexpr bool IsReadOnly = false;
 	};
 	template<>
-	struct LockTraits<std::lock_guard>
+	struct AccessTrait<std::lock_guard>
 	{
 		static constexpr bool IsReadOnly = false;
 	};
 	template<>
-	struct LockTraits<std::unique_lock>
+	struct AccessTrait<std::unique_lock>
 	{
 		static constexpr bool IsReadOnly = false;
 	};
 #if __cplusplus >= 201402L
 	template<>
-	struct LockTraits<std::shared_lock>
+	struct AccessTrait<std::shared_lock>
 	{
 		static constexpr bool IsReadOnly = true;
 	};

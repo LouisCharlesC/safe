@@ -9,10 +9,9 @@
  * 
  */
 
-#include "safe/lockable.h"
 #include "safe/safe.h"
 
-#include "gtest/gtest.h"
+#include "doctest/doctest.h"
 
 #include <cassert>
 #include <condition_variable>
@@ -24,76 +23,84 @@
 
 void readmeWithoutSafeExample()
 {
-std::mutex fooMutex;
+std::string foo; // do I need to lock a mutex to safely access this variable ?
+std::string bar;
+std::string baz; // what about this one ?
+std::mutex fooMutex; // don't forget to change the name of this variable if foo's name changes!
 std::mutex barMutex;
-std::string foo; // <-- do I need to lock a mutex to safely access this variable ?
 
 {
-	std::lock_guard<std::mutex> lock(fooMutex); // <-- is this the right mutex ?
-	foo = "Hello, World!";
+	std::lock_guard<std::mutex> lock(fooMutex); // is this the right mutex for what I am about to do ?
+	foo = "Hello, World!"; // I access foo here, but I could very well access bar, yet barMutex is not locked!
 }
 
-std::cout << foo << std::endl; // <-- unprotected access, is this intended ?
+std::cout << bar << std::endl; // unprotected access, is this intended ?
+std::cout << baz << std::endl; // what about this access ?
 }
 
 void readmeWithSafeExample()
 {
-using LockableString = safe::Lockable<std::string>; // type alisases will save you a lot of typing
-std::mutex barMutex;
-LockableString foo; // <-- value and mutex packaged together!
+using SafeString = safe::Safe<std::string>; // type alisases will save you a lot of typing
+SafeString foo; // value and mutex packaged together!
+SafeString bar;
+std::string baz; // now you can see that this variable has no mutex
 
 {
-	safe::WriteAccess<LockableString> fooAccess(foo); // <-- right mutex: guaranteed!
-
+	safe::WriteAccess<SafeString> fooAccess(foo); // this locks the mutex and gives you access to foo, nothing more
 	*fooAccess = "Hello, World!"; // access the value using pointer semantics: * and ->
-} // from here, you cannot directly access the value anymore: jolly good, since the mutex is not locked anymore!
+}
 
-std::cout << foo.unsafe() << std::endl; // <-- unprotected access: clearly expressed!
+//std::cout << bar << std::endl; // does not compile!
+std::cout << bar.unsafe() << std::endl; // unprotected access: clearly expressed!
+std::cout << baz << std::endl; // all good (remember, baz has no mutex!)
 }
 
 void readmeBasicUsageWithoutSafe()
 {
 std::mutex mutex;
 std::string value;
-std::lock_guard<std::mutex> lock(mutex);
-value = "42";
+{
+	std::lock_guard<std::mutex> lock(mutex);
+	value = "42";
+}
 }
 
 void readmeBasicUsageWithSafe()
 {
-safe::Lockable<std::string> value;
-safe::WriteAccess<safe::Lockable<std::string>> valueAccess(value);
-{
-safe::ReadAccess<safe::Lockable<std::string>> valueAccess(value);
-}
-*valueAccess = "42";
+safe::Safe<int> value;
+safe::WriteAccess<safe::Safe<int>> valueAccess(value);
+safe::Safe<int>::WriteAccess<> valueAccess2(value); // equivalent to the above
+#if __cplusplus >= 201703L
+auto valueAccess3 = value.writeAccess(); // only with C++17 and later
+#endif
+auto valueAccess4 = value.writeAccess<std::unique_lock>();
 }
 
-safe::Lockable<int, std::mutex> _1();
-safe::Lockable<int> _2(); // equivalent to the above, as the second template parameter defaults to std::mutex
-safe::Lockable<int&, std::mutex> _3();
-safe::Lockable<int, std::mutex&> _4();
-safe::Lockable<int&, std::mutex&> _5();
+safe::Safe<int, std::mutex> valmut();
+safe::Safe<int> valdef(); // equivalent to the above, as the second template parameter defaults to std::mutex
+safe::Safe<int&, std::mutex> refmut();
+safe::Safe<int, std::mutex&> valref();
+safe::Safe<int&, std::mutex&> refref();
 
 void readmeDefaultConstructLockableTag()
 {
 std::mutex aMutex;
 
-safe::Lockable<int, std::mutex> bothDefault; // lockable and value are default constructed
-safe::Lockable<int, std::mutex&> noDefault(aMutex, 42); // lockable and value are initialized
-safe::Lockable<int, std::mutex&> valueDefault(aMutex); // lockable is initialized, and value is default constructed
-safe::Lockable<int, std::mutex> lockableDefaultTag(safe::default_construct_mutex, 42); // lockable is default constructed, and value is initialized
-safe::Lockable<int, std::mutex> lockableDefaultBraces({}, 42);
+safe::Safe<int, std::mutex> bothDefault; // mutex and value are default constructed
+safe::Safe<int, std::mutex&> noDefault(aMutex, 42); // mutex and value are initialized
+safe::Safe<int, std::mutex&> valueDefault(aMutex); // mutex is initialized, and value is default constructed
+safe::Safe<int, std::mutex> mutexDefaultTag(safe::default_construct_mutex, 42); // mutex is default constructed, and value is initialized
+safe::Safe<int, std::mutex> mutexDefaultBraces({}, 42);
 }
 
 void readmeFlexiblyConstructLock()
 {
-safe::Lockable<int> value; // given a safe object
+safe::Safe<int> value; // given a Safe object
 value.mutex().lock(); // with the mutex already locked...
 // Because the mutex is already locked, you need to pass the std::adopt_lock tag to std::lock_guard when you construct your Access object.
 
-// Fortunately, all arguments passed to the Safe::writeAccess() function are forwarded to the lock constructor.
-safe::WriteAccess<safe::Lockable<int>> valueAccess(value, std::adopt_lock);
+// Fortunately, arguments passed to WriteAccess's constructor are forwarded to the lock's constructor.
+safe::WriteAccess<safe::Safe<int>> valueAccess(value, std::adopt_lock);
 }
 
 void readmeLegacy()
@@ -102,45 +109,26 @@ std::mutex mutex;
 int value;
 
 // Wrap the existing variables
-safe::Lockable<int&, std::mutex&> lockableValue(mutex, value);
+safe::Safe<int&, std::mutex&> safeValue(mutex, value);
 // do not use mutex and unsafeValue directly from here on!
 }
 
 void readmeConditionVariable()
 {
 std::condition_variable cv;
-safe::Lockable<int> value;
+safe::Safe<int> value;
 
-safe::WriteAccess<safe::Lockable<int>, std::unique_lock> valueAccess(value);
+safe::Safe<int>::WriteAccess<std::unique_lock> valueAccess(value);
 cv.wait(valueAccess.lock);
 }
 
-TEST(ReadmeSafe, Basic)
+TEST_CASE("Readme basic usage")
 {
 safe::Safe<std::vector<std::string>> vec;
-vec.assign(2, "bar"); // assign new vector
-auto copy = vec.copy(); // get a copy
+vec.assign(std::vector<std::string>(2, "bar")); // assign a whole new vector
+auto copy = vec.copy(); // copy whole vector out of safe object
 vec.writeAccess()->front() = "foo"; // replace front only
-assert(vec.readAccess()->size() == 2); // check size
-}
 
-TEST(ReadmeSafe, SharedPtrNoCopy)
-{
-safe::Safe<std::shared_ptr<std::vector<std::string>>> vec(2, "bar"); // the std::shared_ptr is managed internally
-{
-	auto view = vec.copy(); // no copy, view is a std::shared_ptr<const std::vector<std::string>>, notice the const!
-	assert(view->front() == "bar");
-} // view destroyed
-(*vec.writeAccess())->front() = "foo";
-assert((*vec.readAccess())->front() == "foo");
-}
-
-TEST(ReadmeSafe, SharedPtrCopy)
-{
-safe::Safe<std::shared_ptr<std::vector<std::string>>> vec(2, "bar");
-auto view = vec.copy(); // again, no copy here
-assert(view->front() == "bar");
-(*vec.writeAccess())->front() = "foo"; // the copy happens here! the content of vec is copied into a brand new std::shared_vector, then the first element is modified
-assert(view->front() == "bar"); // this is still true!
-assert((*vec.readAccess())->front() == "foo"); // see ? vec does hold a difference instance than view
+assert(vec.readAccess()->front() == "foo"); // check vec's front is "foo"
+assert(copy.front() == "bar"); // check copy's front is "bar"
 }

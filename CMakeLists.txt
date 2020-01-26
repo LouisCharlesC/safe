@@ -1,27 +1,17 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.13.4)
 
-project(safe VERSION 0.2.0)
+project(safe VERSION 1.0.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+include(GNUInstallDirs)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+include(DocTarget)
 
-find_package(Doxygen QUIET)
-if (DOXYGEN_FOUND)
-	set(DOXYFILE_TO_CONFIGURE ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in)
-	set(DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
+add_library(${PROJECT_NAME} INTERFACE)
+target_include_directories(${PROJECT_NAME} INTERFACE
+	$<BUILD_INTERFACE:${${PROJECT_NAME}_SOURCE_DIR}/include>
+	$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_11)
 
-	configure_file(${DOXYFILE_TO_CONFIGURE} ${DOXYFILE} @ONLY)
-
-	add_custom_target(doc COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYFILE})
-endif(DOXYGEN_FOUND)
-
-include_directories(include)
-
-find_package(GTest QUIET)
-if(GTEST_FOUND)
-	enable_testing()
-	add_subdirectory("tests")
-endif()
-
-install(DIRECTORY include/safe DESTINATION include)
+include(InstallTarget)
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
