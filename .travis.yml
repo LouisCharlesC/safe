@@ -10,27 +10,30 @@ jobs:
       dist: trusty
       compiler: gcc
     - os: linux
-      dist: trusty
-      compiler: clang
-    - os: linux
       dist: xenial
       compiler: gcc
     - os: linux
       dist: xenial
       compiler: clang
+    - os: osx
+      compiler: gcc
+    - os: osx
+      compiler: clang
 install:
 - git clone https://github.com/onqtam/doctest.git
-- mkdir -p doctest/build
+- mkdir doctest/build
 - cd doctest/build
 - cmake ..
 - sudo make -j4 install
-- cd ../..
-script:
-- mkdir -p build/install; mkdir build/tests
-- cd build/install
-- cmake ../..
+- cd $TRAVIS_BUILD_DIR
+- mkdir install
+- cd install
+- cmake ..
 - sudo make -j4 install
-- cd ../tests
-- cmake -D CMAKE_BUILD_TYPE=Release ../../tests
+- cd $TRAVIS_BUILD_DIR
+script:
+- mkdir build
+- cd build
+- cmake -D CMAKE_BUILD_TYPE=Release ../tests
 - make all test
 - ctest --output-on-failure
