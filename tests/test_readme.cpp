@@ -9,9 +9,9 @@
  * 
  */
 
-#include "safe/safe.h"
+#include <safe/safe.h>
 
-#include "doctest/doctest.h"
+#include <doctest/doctest.h>
 
 #include <cassert>
 #include <condition_variable>
@@ -40,47 +40,81 @@ std::cout << baz << std::endl; // what about this access ?
 
 void readmeWithSafeExample()
 {
-using SafeString = safe::Safe<std::string>; // type alisases will save you a lot of typing
-SafeString foo; // value and mutex packaged together!
-SafeString bar;
+using SafeString = safe::Safe<std::string>; // type aliases will save you a lot of typing
+SafeString safeFoo; // std::string and mutex packaged together!
+SafeString safeBar;
 std::string baz; // now you can see that this variable has no mutex
 
 {
-	safe::WriteAccess<SafeString> fooAccess(foo); // this locks the mutex and gives you access to foo, nothing more
-	*fooAccess = "Hello, World!"; // access the value using pointer semantics: * and ->
+	safe::WriteAccess<SafeString> foo(safeFoo); // this locks the mutex and gives you access to foo, nothing more
+	*foo = "Hello, World!"; // access the value using pointer semantics: * and ->
 }
 
-//std::cout << bar << std::endl; // does not compile!
-std::cout << bar.unsafe() << std::endl; // unprotected access: clearly expressed!
+//std::cout << safeBar << std::endl; // does not compile!
+std::cout << safeBar.unsafe() << std::endl; // unprotected access: clearly expressed!
 std::cout << baz << std::endl; // all good (remember, baz has no mutex!)
 }
 
 void readmeBasicUsageWithoutSafe()
 {
 std::mutex mutex;
-std::string value;
+int value;
 {
-	std::lock_guard<std::mutex> lock(mutex);
-	value = "42";
+std::lock_guard<std::mutex> lock(mutex);
+value = 42;
 }
 }
 
 void readmeBasicUsageWithSafe()
 {
-safe::Safe<int> value;
-safe::WriteAccess<safe::Safe<int>> valueAccess(value);
-safe::Safe<int>::WriteAccess<> valueAccess2(value); // equivalent to the above
+safe::Safe<int> safeValue;
+{
+safe::WriteAccess<safe::Safe<int>> value(safeValue);
+*value = 42;
+}
+{
+safe::Safe<int>::WriteAccess<> value(safeValue); // equivalent to the above
+}
 #if __cplusplus >= 201703L
-auto valueAccess3 = value.writeAccess(); // only with C++17 and later
+{
+auto value = safeValue.writeAccess(); // only with C++17 and later
+}
 #endif
-auto valueAccess4 = value.writeAccess<std::unique_lock>();
+{
+auto value = safeValue.writeAccess<std::unique_lock>(); // ok even pre-C++17
+}
 }
 
-safe::Safe<int, std::mutex> valmut();
-safe::Safe<int> valdef(); // equivalent to the above, as the second template parameter defaults to std::mutex
-safe::Safe<int&, std::mutex> refmut();
-safe::Safe<int, std::mutex&> valref();
-safe::Safe<int&, std::mutex&> refref();
+void readmeOnLiners()
+{
+safe::Safe<int> safeValue;
+*safeValue.writeAccess() = 42;
+{
+int value = *safeValue.readAccess();
+}
+{
+int value = *safeValue.writeAccess(); // this also works...
+}
+// *safeValue.readAccess() = 42; // but this obviously doesn't!
+safeValue.assign(42);
+int value = safeValue.copy();
+}
+
+
+void readmeRefAndNonRef()
+{
+std::mutex mutex;
+int value;
+safe::Safe<int, std::mutex> valmut;
+safe::Safe<int> valdef; // equivalent to the above, as the second template parameter defaults to std::mutex
+safe::Safe<int&, std::mutex> refmut(safe::default_construct_mutex, value);
+safe::Safe<int, std::mutex&> valref(mutex, 42);
+safe::Safe<int&, std::mutex&> refref(mutex, value);
+CHECK_EQ(&refmut.unsafe(), &value);
+CHECK_EQ(&valref.mutex, &mutex);
+CHECK_EQ(&refref.unsafe(), &value);
+CHECK_EQ(&refref.mutex, &mutex);
+}
 
 void readmeDefaultConstructLockableTag()
 {
@@ -95,12 +129,26 @@ safe::Safe<int, std::mutex> mutexDefaultBraces({}, 42);
 
 void readmeFlexiblyConstructLock()
 {
-safe::Safe<int> value; // given a Safe object
-value.mutex().lock(); // with the mutex already locked...
+safe::Safe<int> safeValue; // given a Safe object
+safeValue.mutex().lock(); // with the mutex already locked...
 // Because the mutex is already locked, you need to pass the std::adopt_lock tag to std::lock_guard when you construct your Access object.
 
 // Fortunately, arguments passed to WriteAccess's constructor are forwarded to the lock's constructor.
-safe::WriteAccess<safe::Safe<int>> valueAccess(value, std::adopt_lock);
+{
+safe::WriteAccess<safe::Safe<int>> value(safeValue, std::adopt_lock);
+}
+safeValue.mutex().lock();
+{
+safe::Safe<int>::WriteAccess<> value(safeValue, std::adopt_lock);
+}
+safeValue.mutex().lock();
+{
+auto value = safeValue.writeAccess(std::adopt_lock);
+}
+safeValue.mutex().lock();
+{
+auto value = safeValue.writeAccess<std::unique_lock>(std::adopt_lock);
+}
 }
 
 void readmeLegacy()

@@ -32,18 +32,18 @@ std::cout << baz << std::endl; // what about this access ?
 ```
 ### Mutex code with *safe*
 ```c++
-using SafeString = safe::Safe<std::string>; // type alisases will save you a lot of typing
-SafeString foo; // value and mutex packaged together!
-SafeString bar;
+using SafeString = safe::Safe<std::string>; // type aliases will save you a lot of typing
+SafeString safeFoo; // std::string and mutex packaged together!
+SafeString safeBar;
 std::string baz; // now you can see that this variable has no mutex
 
 {
-	safe::WriteAccess<SafeString> fooAccess(foo); // this locks the mutex and gives you access to foo, nothing more
-	*fooAccess = "Hello, World!"; // access the value using pointer semantics: * and ->
+	safe::WriteAccess<SafeString> foo(safeFoo); // this locks the mutex and gives you access to foo, nothing more
+	*foo = "Hello, World!"; // access the value using pointer semantics: * and ->
 }
 
-//std::cout << bar << std::endl; // does not compile!
-std::cout << bar.unsafe() << std::endl; // unprotected access: clearly expressed!
+//std::cout << safeBar << std::endl; // does not compile!
+std::cout << safeBar.unsafe() << std::endl; // unprotected access: clearly expressed!
 std::cout << baz << std::endl; // all good (remember, baz has no mutex!)
 ```
 ### Vocabulary
@@ -62,14 +62,17 @@ Since C++11, the standard library provides mutexes, like std::mutex, along with 
 The *safe* library defines the Safe and Access class templates. They are meant to replace the mutexes and locks in your code. *safe* does not offer much more functionality than mutexes and locks do, they simply make their usage safer.  
 Here is the simplest way to replace mutexes and locks by *safe* objects:
 ### Make the library available in your build system
-TODO:
-Either
-1. Find package.
-2. Install the library.
-3. Copy the headers in your project.
+*safe* is a header-only library. Using the library can simply mean copy the contents of the include/ folder to some place of your convinience. Alternately, you could install the library using cmake. A typical install procedure is:
+```bash
+mkdir build
+cd build
+cmake ..
+sudo cmake --build . --target install
+```
+Hopefully this works on any OS. It should copy the library to the right os-specific location so you can succesfully #include <safe/safe.h>. It will also create the cmake specific files that will allow you to use find_package(safe) in your cmake scripts.
 ### Include the library's single header
 ```c++
-#include "safe/safe.h"
+#include <safe/safe.h>
 ```
 ### Replace your values and mutexes by Safe objects
 ```c++
@@ -78,39 +81,42 @@ Either
 safe::Safe<int> safeValue;
 ```
 ### Replace your lock objects by Access objects
-Access objects can either be read-write or read-only. Aliases and functions exist to create the Access objects you need. In the code below, replace Write/write by Read/read to get read-only access.
+Access objects can either be read-write or read-only. The examples below show different way to create a WriteAccess object, Replace Write/write by Read/read to get ReadAccess objects.
 ```c++
 // std::lock_guard<std::mutex> lock(mutex);
-safe::WriteAccess<safe::Safe<int>> valueAccess(safeValue);
-safe::Safe<int>::WriteAccess<> valueAccess2(safeValue); // equivalent to the above
-auto valueAccess3 = value.writeAccess(); // only with C++17 and later
+safe::WriteAccess<safe::Safe<int>> value(safeValue);
+safe::Safe<int>::WriteAccess<> value(safeValue); // equivalent to the above
+auto value = safeValue.writeAccess(); // only with C++17 and later
 ```
 #### The problem with std::lock_guard
 The last line of the above example only compiles with C++17 and later. This is because of the new rules on temporaries introduced in C++17, and because *safe* uses std::lock_guard by default. std::lock_guard is non-copiable, non-moveable so it cannot be initialized as above prior to C++17. As shown below, using std::unique_lock (which is moveable) is fine:
 ```c++
-auto valueAccess4 = value.writeAccess<std::unique_lock>(); // ok even pre-C++17
+auto value = safeValue.writeAccess<std::unique_lock>(); // ok even pre-C++17
 ```
 ### Access your value object through the Access objects using pointer semantics
 You can now safely access the value object *through the Access object* without worrying about the mutex.
 ```c++
 // value = 42;
-*valueAccess = 42;
+*value = 42;
 ```
 #### Use Safe member functions as one-liners, if suitable
-If you need to peform a single access to your value, you can do this using Safe's member functions: readAccess, writeAccess, copy and assign. readAccess and writeAccess will return an Access object, but will let you operate on it in an expressive way. Example:
+If you need to peform a single access to your value, you can do this using Safe's member functions: readAccess(), writeAccess(), copy() and assign(). readAccess() and writeAccess() will return an Access object, but will let you operate on it in an expressive way. Example:
 ```c++
-*value.writeAccess() = 42;
+*safeValue.writeAccess() = 42;
+int value = *safeValue.readAccess();
+int value = *safeValue.writeAccess(); // this also works...
+// *safeValue.readAccess() = 42; // but this obviously doesn't!
 ```
 However, if all you need to do is assign a new value, then you might as well use the assign function:
 ```c++
-value.assign(42);
+safeValue.assign(42);
 ```
 Finally, to get a copy of the value object, call the copy function:
 ```c++
-auto aCopy = value.copy();
+int value = safeValue.copy();
 ```
-***Warning: avoid multiple calls to the access member functions, as each will lock and unlock the mutex.***
-*Be aware that copy/move construction/assignment operators are deleted for Safe objects. That is because copying and moving requires the mutex to be locked, and the safe library aims at making every locking explicit.* Use the copy and assign functions instead.
+***Warning: avoid multiple calls to these functions, as each will lock and unlock the mutex.***
+*Be aware that copy/move construction/assignment operators are deleted for Safe objects. That is because copying and moving requires the mutex to be locked, and the safe library aims at making every locking explicit.* Use the copy() and assign() functions instead.
 ## Main features
 ### 1. Safety and clarity
 No more locking the wrong mutex, no more mistaken access outside the safety of a locked mutex. No more naked shared variables, no more plain mutexes lying around and no more *mutable* keyword (ever used a member mutex variable within a const-qualified member function ?).
@@ -148,13 +154,17 @@ safe::Safe<int, std::mutex> mutexDefaultBraces({}, 42);
 #### Flexibly construct the Lock objects
 The Access constructors have a variadic parameter pack that is forwarded to the Lock object's constructor. This can be used to pass in standard lock tags such as std::adopt_lock, but also to construct your custom locks that may require additionnal arguments than just the mutex.
 ```c++
-safe::Safe<int> value; // given a Safe object
-value.mutex().lock(); // with the mutex already locked...
+safe::Safe<int> safeValue; // given a Safe object
+safeValue.mutex().lock(); // with the mutex already locked...
 // Because the mutex is already locked, you need to pass the std::adopt_lock tag to std::lock_guard when you construct your Access object.
 
-// Fortunately, arguments passed to WriteAccess's constructor are forwarded to the lock's constructor.
-safe::WriteAccess<safe::Safe<int>> valueAccess(value, std::adopt_lock);
+// No matter how you get your Access objects, you can pass arguments to the lock's constructor.
+safe::WriteAccess<safe::Safe<int>> value(safeValue, std::adopt_lock);
+safe::Safe<int>::WriteAccess<> value(safeValue, std::adopt_lock);
+auto value = safeValue.writeAccess(std::adopt_lock);
+auto value = safeValue.writeAccess<std::unique_lock>(std::adopt_lock);
 ```
+This is 
 ### 3. Even more safety!
 #### Choose the access mode that suits each access
 Once you construct a Safe object, you fix the type of mutex you will use. From there, you will create an Access object every time you want to operate on the value object. For each of these accesses, you can choose whether the access is read-write or read-only.
