@@ -111,9 +111,9 @@ safe::Safe<int&, std::mutex> refmut(safe::default_construct_mutex, value);
 safe::Safe<int, std::mutex&> valref(mutex, 42);
 safe::Safe<int&, std::mutex&> refref(mutex, value);
 CHECK_EQ(&refmut.unsafe(), &value);
-CHECK_EQ(&valref.mutex, &mutex);
+CHECK_EQ(&valref.mutex(), &mutex);
 CHECK_EQ(&refref.unsafe(), &value);
-CHECK_EQ(&refref.mutex, &mutex);
+CHECK_EQ(&refref.mutex(), &mutex);
 }
 
 void readmeDefaultConstructLockableTag()
