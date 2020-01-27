@@ -6,19 +6,19 @@ compiler:
 - clang
 jobs:
   include:
-    - os: linux
-      dist: trusty
-      compiler: gcc
-    - os: linux
-      dist: xenial
-      compiler: gcc
-    - os: linux
-      dist: xenial
-      compiler: clang
-    - os: osx
-      compiler: gcc
-    - os: osx
-      compiler: clang
+  - os: linux
+    dist: trusty
+    compiler: gcc
+  - os: linux
+    dist: xenial
+    compiler: gcc
+  - os: linux
+    dist: xenial
+    compiler: clang
+  - os: osx
+    compiler: gcc
+  - os: osx
+    compiler: clang
 install:
 - git clone https://github.com/onqtam/doctest.git
 - mkdir doctest/build
@@ -35,5 +35,5 @@ script:
 - mkdir build
 - cd build
 - cmake -D CMAKE_BUILD_TYPE=Release ../tests
-- make all test
+- make -j4
 - ctest --output-on-failure
