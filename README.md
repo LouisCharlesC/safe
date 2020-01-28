@@ -161,15 +161,12 @@ safeValue.mutex().lock(); // with the mutex already locked...
 // No matter how you get your Access objects, you can pass arguments to the lock's constructor.
 safe::WriteAccess<safe::Safe<int>> value(safeValue, std::adopt_lock);
 safe::Safe<int>::WriteAccess<> value(safeValue, std::adopt_lock);
-auto value = safeValue.writeAccess(std::adopt_lock);
+auto value = safeValue.writeAccess(std::adopt_lock); // again, only in C++17
 auto value = safeValue.writeAccess<std::unique_lock>(std::adopt_lock);
 ```
-This is 
 ### 3. Even more safety!
 #### Choose the access mode that suits each access
-Once you construct a Safe object, you fix the type of mutex you will use. From there, you will create an Access object every time you want to operate on the value object. For each of these accesses, you can choose whether the access is read-write or read-only.
-Use the ReadAccess and WriteAccess aliases to easily construct read-only and read-write Access objects.
-
+You will instatiate one Safe object for every value object you want to protect. But, you will create an Access object every time you want to operate on the value object. For each of these accesses, you can choose whether the access is read-write or read-only.
 #### Force read-only access with shared mutexes and shared_locks
 Shared mutexes and shared locks allow multiple reading threads to access the value object simultaneously. Unfortunately, using only mutexes and locks, the read-only restriction is not guaranteed to be applied. That is, it is possible to lock a mutex in shared mode and write to the shared value. With *safe*, you can enforce read-only access when using shared locking by using ReadAccess objects. See [this section](#Enforcing-read-only-access) for details.
 ### 4. Compatibility
@@ -180,7 +177,7 @@ std::mutex lousyMutex;
 int unsafeValue;
 
 // Wrap the existing variables
-safe::Lockable<int&, std::mutex&> lockableValue(mutex, value);
+safe::Safe<int&, std::mutex&> safeValue(lousyMutex, unsafeValue);
 // do not use lousyMutex and unsafeValue directly from here on!
 ```
 #### With code from the future
@@ -193,7 +190,7 @@ For example, *safe* can seamlessly be used with std::condition_variable:
 std::condition_variable cv;
 safe::Safe<int> value;
 
-safe::WriteAccess<safe::Safe<int>, std::unique_lock> valueAccess(value);
+safe::Safe<int>::WriteAccess<std::unique_lock> valueAccess(value);
 cv.wait(valueAccess.lock);
 ```
 ## Advanced usage
@@ -209,12 +206,10 @@ Here is how the trait works:
 As an example, here is how to specialize the trait for std::shared_lock (you will find this exact code snippet in safe/traits.h):
 ```c++
 template<>
-struct LockTraits<std::shared_lock>
+struct AccessTraits<std::shared_lock>
 {
 	static constexpr bool IsReadOnly = true;
 };
 ```
-
 # Acknowledgment
-Most cmake code comes from this repo: https://github.com/bsamseth/cpp-project
-Some come from Craig Scott's CppCon 2019 talk: Deep CMake for Library Authors
+Most cmake code comes from this repo: https://github.com/bsamseth/cpp-project and Craig Scott's CppCon 2019 talk: Deep CMake for Library Authors. Many thanks to the authors!

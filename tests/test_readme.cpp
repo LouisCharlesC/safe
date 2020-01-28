@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 
-void readmeWithoutSafeExample()
+TEST_CASE("Readme without safe example")
 {
 std::string foo; // do I need to lock a mutex to safely access this variable ?
 std::string bar;
@@ -38,7 +38,7 @@ std::cout << bar << std::endl; // unprotected access, is this intended ?
 std::cout << baz << std::endl; // what about this access ?
 }
 
-void readmeWithSafeExample()
+TEST_CASE("Readme with safe example")
 {
 using SafeString = safe::Safe<std::string>; // type aliases will save you a lot of typing
 SafeString safeFoo; // std::string and mutex packaged together!
@@ -55,7 +55,7 @@ std::cout << safeBar.unsafe() << std::endl; // unprotected access: clearly expre
 std::cout << baz << std::endl; // all good (remember, baz has no mutex!)
 }
 
-void readmeBasicUsageWithoutSafe()
+TEST_CASE("Readme basic usage without safe")
 {
 std::mutex mutex;
 int value;
@@ -65,43 +65,53 @@ value = 42;
 }
 }
 
-void readmeBasicUsageWithSafe()
+TEST_CASE("Readme basic usage with safe")
 {
 safe::Safe<int> safeValue;
 {
 safe::WriteAccess<safe::Safe<int>> value(safeValue);
 *value = 42;
+CHECK_EQ(safeValue.unsafe(), 42);
 }
 {
 safe::Safe<int>::WriteAccess<> value(safeValue); // equivalent to the above
+CHECK_EQ(*value, 42);
 }
 #if __cplusplus >= 201703L
 {
 auto value = safeValue.writeAccess(); // only with C++17 and later
+CHECK_EQ(*value, 42);
 }
 #endif
 {
 auto value = safeValue.writeAccess<std::unique_lock>(); // ok even pre-C++17
+CHECK_EQ(*value, 42);
 }
 }
 
-void readmeOnLiners()
+TEST_CASE("Readme one liners")
 {
 safe::Safe<int> safeValue;
 *safeValue.writeAccess() = 42;
 {
 int value = *safeValue.readAccess();
+CHECK_EQ(value, 42);
 }
 {
 int value = *safeValue.writeAccess(); // this also works...
+CHECK_EQ(value, 42);
 }
 // *safeValue.readAccess() = 42; // but this obviously doesn't!
+{
+safeValue.assign(43);
+CHECK_EQ(safeValue.unsafe(), 43);
 safeValue.assign(42);
 int value = safeValue.copy();
+CHECK_EQ(value, 42);
+}
 }
 
-
-void readmeRefAndNonRef()
+TEST_CASE("Readme ref and non ref")
 {
 std::mutex mutex;
 int value;
@@ -116,67 +126,61 @@ CHECK_EQ(&refref.unsafe(), &value);
 CHECK_EQ(&refref.mutex(), &mutex);
 }
 
-void readmeDefaultConstructLockableTag()
+TEST_CASE("Readme default construct lockable tag")
 {
-std::mutex aMutex;
-
+std::mutex mutex;
 safe::Safe<int, std::mutex> bothDefault; // mutex and value are default constructed
-safe::Safe<int, std::mutex&> noDefault(aMutex, 42); // mutex and value are initialized
-safe::Safe<int, std::mutex&> valueDefault(aMutex); // mutex is initialized, and value is default constructed
+safe::Safe<int, std::mutex&> noDefault(mutex, 42); // mutex and value are initialized
+safe::Safe<int, std::mutex&> valueDefault(mutex); // mutex is initialized, and value is default constructed
 safe::Safe<int, std::mutex> mutexDefaultTag(safe::default_construct_mutex, 42); // mutex is default constructed, and value is initialized
 safe::Safe<int, std::mutex> mutexDefaultBraces({}, 42);
+CHECK_EQ(noDefault.unsafe(), 42);
+CHECK_EQ(mutexDefaultTag.unsafe(), 42);
+CHECK_EQ(mutexDefaultBraces.unsafe(), 42);
 }
 
-void readmeFlexiblyConstructLock()
+TEST_CASE("Readme flexibly construct lock")
 {
 safe::Safe<int> safeValue; // given a Safe object
 safeValue.mutex().lock(); // with the mutex already locked...
+CHECK_EQ(safeValue.mutex().try_lock(), false);
 // Because the mutex is already locked, you need to pass the std::adopt_lock tag to std::lock_guard when you construct your Access object.
 
 // Fortunately, arguments passed to WriteAccess's constructor are forwarded to the lock's constructor.
 {
 safe::WriteAccess<safe::Safe<int>> value(safeValue, std::adopt_lock);
 }
-safeValue.mutex().lock();
+CHECK_EQ(safeValue.mutex().try_lock(), true);
 {
 safe::Safe<int>::WriteAccess<> value(safeValue, std::adopt_lock);
 }
-safeValue.mutex().lock();
+CHECK_EQ(safeValue.mutex().try_lock(), true);
+#if __cplusplus >= 201703L
 {
 auto value = safeValue.writeAccess(std::adopt_lock);
 }
-safeValue.mutex().lock();
+#endif
+CHECK_EQ(safeValue.mutex().try_lock(), true);
 {
 auto value = safeValue.writeAccess<std::unique_lock>(std::adopt_lock);
 }
+CHECK_EQ(safeValue.mutex().try_lock(), true);
 }
 
-void readmeLegacy()
+TEST_CASE("Readme legacy")
 {
-std::mutex mutex;
-int value;
+std::mutex lousyMutex;
+int unsafeValue;
 
 // Wrap the existing variables
-safe::Safe<int&, std::mutex&> safeValue(mutex, value);
-// do not use mutex and unsafeValue directly from here on!
+safe::Safe<int&, std::mutex&> safeValue(lousyMutex, unsafeValue);
+// do not use lousyMutex and unsafeValue directly from here on!
 }
 
-void readmeConditionVariable()
+TEST_CASE("Readme condition variable")
 {
 std::condition_variable cv;
 safe::Safe<int> value;
-
 safe::Safe<int>::WriteAccess<std::unique_lock> valueAccess(value);
-cv.wait(valueAccess.lock);
-}
-
-TEST_CASE("Readme basic usage")
-{
-safe::Safe<std::vector<std::string>> vec;
-vec.assign(std::vector<std::string>(2, "bar")); // assign a whole new vector
-auto copy = vec.copy(); // copy whole vector out of safe object
-vec.writeAccess()->front() = "foo"; // replace front only
-
-assert(vec.readAccess()->front() == "foo"); // check vec's front is "foo"
-assert(copy.front() == "bar"); // check copy's front is "bar"
+cv.wait(valueAccess.lock, [](){return true;});
 }

@@ -76,7 +76,7 @@ namespace safe
 		class Access
 		{
 			// Make sure AccessMode is ReadOnly if a read-only lock is used
-			static_assert(!(AccessTrait<LockType>::IsReadOnly && Mode==AccessMode::ReadWrite), "Cannot have ReadWrite access mode with ReadOnly lock. Check the value of AccessTrait<LockType>::IsReadOnly if it exists.");
+			static_assert(!(AccessTraits<LockType>::IsReadOnly && Mode==AccessMode::ReadWrite), "Cannot have ReadWrite access mode with ReadOnly lock. Check the value of AccessTraits<LockType>::IsReadOnly if it exists.");
 
 			/// ValueType with const qualifier if AccessMode is ReadOnly.
 			using ConstIfReadOnlyValueType = typename std::conditional<Mode==AccessMode::ReadOnly, const RemoveRefValueType, RemoveRefValueType>::type;
@@ -293,6 +293,11 @@ namespace safe
 		{
 			return *readAccess<LockType>(std::forward<LockArgs>(lockArgs)...);
 		}
+		// template<template<typename> class LockType=DefaultReadWriteLock, typename... LockArgs>
+		// RemoveRefValueType move(LockArgs&&... lockArgs)
+		// {
+		// 	return std::move(*writeAccess<LockType>(std::forward<LockArgs>(lockArgs)...));
+		// }
 
 		template<template<typename> class LockType=DefaultReadWriteLock, typename... LockArgs>
 		void assign(ConstValueReferenceType value, LockArgs&&... lockArgs)

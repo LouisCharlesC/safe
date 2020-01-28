@@ -9,6 +9,7 @@ jobs:
   - os: linux
     dist: trusty
     compiler: gcc
+  # It doesn't compile with clang on trusty... so we don't do it!
   - os: linux
     dist: xenial
     compiler: gcc
@@ -24,16 +25,16 @@ install:
 - mkdir doctest/build
 - cd doctest/build
 - cmake ..
-- sudo make -j4 install
+- sudo make -j2 install
 - cd $TRAVIS_BUILD_DIR
 - mkdir install
 - cd install
 - cmake ..
-- sudo make -j4 install
+- sudo make -j2 install
 - cd $TRAVIS_BUILD_DIR
 script:
 - mkdir build
 - cd build
 - cmake -D CMAKE_BUILD_TYPE=Release ../tests
-- make -j4
-- ctest --output-on-failure
+- make -j2
+- ./tests
