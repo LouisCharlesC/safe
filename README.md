@@ -61,14 +61,14 @@ Since C++11, the standard library provides mutexes, like std::mutex, along with 
 The *safe* library defines the Safe and Access class templates. They are meant to replace the mutexes and locks in your code. *safe* does not offer much more functionality than mutexes and locks do, they simply make their usage safer.  
 Here is the simplest way to replace mutexes and locks by *safe* objects:
 ### Make the library available in your build system
-*safe* is a header-only library. Using the library can simply mean copy the contents of the include/ folder to some place of your convinience. Alternately, you could install the library using cmake. A typical install procedure is:
+*safe* is a header-only library. Using the library can simply mean copy the contents of the include/ folder to some place of your convenience. Alternately, you could install the library using cmake. A typical install procedure is:
 ```bash
 mkdir build
 cd build
 cmake ..
 sudo cmake --build . --target install
 ```
-Hopefully this works on any OS. It should copy the library to the right os-specific location so you can succesfully #include <safe/safe.h>. It will also create the cmake specific files that will allow you to use find_package(safe) in your cmake scripts.
+Hopefully this works on any OS. It should copy the library to the right os-specific location so you can succesfully `#include <safe/safe.h>`. It will also create the cmake specific files that will allow you to use `find_package(safe)` in your cmake scripts.
 ### Include the library's single header
 ```c++
 #include <safe/safe.h>
