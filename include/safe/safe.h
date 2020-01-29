@@ -1,5 +1,5 @@
 /**
- * @file lockable.h
+ * @file safe.h
  * @author L.-C. C.
  * @brief 
  * @version 0.1
@@ -12,9 +12,9 @@
 #pragma once
 
 #include "accessmode.h"
+#include "defaulttypes.h"
 #include "mutableref.h"
 
-#include <mutex>
 #include <type_traits>
 #include <utility>
 
@@ -26,20 +26,8 @@
 #define EXPLICITLY_CONSTRUCT_RETURN_TYPE_IF_CPP17
 #endif
 
-//TODO: make it work with pointers ? sure, why not
-//			make it work with any std::lock (timed ?, scoped ?, etc.)
-//				make a multiMutex, and a timedLock (with shared, try_until and try_for tags ?)
-//			find a way to easily parameterize the DefaultMutex/Lock types.
-
 namespace safe
 {
-	/// If you want to change the default mutex and lock types, just do it here.
-	using DefaultMutex = std::mutex;
-	template<typename MutexType>
-	using DefaultReadOnlyLock = std::lock_guard<MutexType>;
-	template<typename MutexType>
-	using DefaultReadWriteLock = std::lock_guard<MutexType>;
-
 	/**
 	 * @brief Use this tag to default construct the mutex when constructing a
 	 * Safe object.
@@ -293,11 +281,6 @@ namespace safe
 		{
 			return *readAccess<LockType>(std::forward<LockArgs>(lockArgs)...);
 		}
-		// template<template<typename> class LockType=DefaultReadWriteLock, typename... LockArgs>
-		// RemoveRefValueType move(LockArgs&&... lockArgs)
-		// {
-		// 	return std::move(*writeAccess<LockType>(std::forward<LockArgs>(lockArgs)...));
-		// }
 
 		template<template<typename> class LockType=DefaultReadWriteLock, typename... LockArgs>
 		void assign(ConstValueReferenceType value, LockArgs&&... lockArgs)

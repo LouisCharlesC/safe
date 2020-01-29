@@ -205,22 +205,6 @@ TEST_CASE("Copy member function locks the mutex before copying (and unlocks afte
 	CHECK(checker.checkValueCounts(1, 0, 0, 0, false));
 	// Check checker and checkerCopy are different instances
 	CHECK_NE(&checker, &checkerCopy);
-
-	// const auto& checkerMove = safeChecker.move();
-
-	// // Check that the right number of calls were made to the lock
-	// CHECK(lock.checkCounts(2,0,2));
-	// // Check that the lock is unlocked and not faulted
-	// CHECK_FALSE(lock.isLocked());
-	// CHECK_FALSE(lock.isFaulted());
-	// // Check that checkerMove was copy constructed
-	// CHECK(checkerMove.checkValueCounts(1, 1, 0, 0, false));
-	// // Check the lock was locked when checkerMove was constructed
-	// CHECK(checkerMove.isOk());
-	// // Check that checker was not moved from
-	// CHECK(checker.checkValueCounts(1, 1, 0, 0, true));
-	// // Check checker and checkerMove are different instances
-	// CHECK_NE(&checker, &checkerMove);
 }
 
 TEST_CASE("Assign member functions lock the mutex before assigning (and unlocks afterwards!)")
