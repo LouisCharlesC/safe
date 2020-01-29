@@ -4,6 +4,11 @@ dist: bionic
 compiler:
 - gcc
 - clang
+arch:
+- amd64
+- arm64
+- ppc64le
+- s390x
 jobs:
   include:
   - os: linux
