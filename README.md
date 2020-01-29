@@ -1,5 +1,4 @@
-# Make your multithreaded code safe and crystal clear!
-*Every variable protected by a mutex should be wrapped with safe.*
+# *Every variable protected by a mutex should be wrapped with safe.*
 
 [![Build Status](https://travis-ci.org/LouisCharlesC/safe.svg?branch=master)](https://travis-ci.org/LouisCharlesC/safe)
 ## Contents
@@ -93,7 +92,7 @@ The last line of the above example only compiles with C++17 and later. This is b
 ```c++
 auto value = safeValue.writeAccess<std::unique_lock>(); // ok even pre-C++17
 ```
-### Access your value object through the Access objects using pointer semantics
+## Access your value object through the Access objects using pointer semantics
 You can now safely access the value object *through the Access object* without worrying about the mutex.
 ```c++
 // value = 42;
@@ -151,7 +150,7 @@ safe::Safe<int, std::mutex&> valueDefault(aMutex); // mutex is initialized, and 
 safe::Safe<int, std::mutex> mutexDefaultTag(safe::default_construct_mutex, 42); // mutex is default constructed, and value is initialized
 safe::Safe<int, std::mutex> mutexDefaultBraces({}, 42);
 ```
-#### Flexibly construct the Lock objects
+### Flexibly construct the Lock objects
 The Access constructors have a variadic parameter pack that is forwarded to the Lock object's constructor. This can be used to pass in standard lock tags such as std::adopt_lock, but also to construct your custom locks that may require additionnal arguments than just the mutex.
 ```c++
 safe::Safe<int> safeValue; // given a Safe object
@@ -180,7 +179,7 @@ int unsafeValue;
 safe::Safe<int&, std::mutex&> safeValue(lousyMutex, unsafeValue);
 // do not use lousyMutex and unsafeValue directly from here on!
 ```
-#### With code from the future
+### With code from the future
 *safe* is written in C++11, but it is fully compatible with mutexes and locks from different sources like C++14's std::shared_lock and C++17's std::shared_mutex, thanks to template parameters. Of course, you can also use boost::shared_lock_guard and your own custom mutexes and locks.
 #### With standard uses of mutexes and locks
 The mutex is accessible from the Safe object through an accessor functions, and the lock object is a public member of the Access class. Anything you can do with your typical mutexes and locks you can do with *safe*. 
