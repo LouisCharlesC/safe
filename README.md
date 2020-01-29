@@ -188,10 +188,9 @@ The mutex is accessible from the Safe object through an accessor functions, and 
 For example, *safe* can seamlessly be used with std::condition_variable:
 ```c++
 std::condition_variable cv;
-safe::Safe<int> value;
-
-safe::Safe<int>::WriteAccess<std::unique_lock> valueAccess(value);
-cv.wait(valueAccess.lock);
+safe::Safe<int> safeValue;
+safe::Safe<int>::WriteAccess<std::unique_lock> value(safeValue);
+cv.wait(value.lock, [](){return true;});
 ```
 ## Advanced usage
 ### Enforcing read-only access

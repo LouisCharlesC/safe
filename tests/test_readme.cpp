@@ -71,20 +71,25 @@ safe::Safe<int> safeValue;
 {
 safe::WriteAccess<safe::Safe<int>> value(safeValue);
 *value = 42;
+CHECK_EQ(&*value, &safeValue.unsafe());
 CHECK_EQ(safeValue.unsafe(), 42);
 }
 {
 safe::Safe<int>::WriteAccess<> value(safeValue); // equivalent to the above
+CHECK_EQ(&*value, &safeValue.unsafe());
 CHECK_EQ(*value, 42);
 }
 #if __cplusplus >= 201703L
 {
 auto value = safeValue.writeAccess(); // only with C++17 and later
+CHECK_EQ(&*value, &safeValue.unsafe());
 CHECK_EQ(*value, 42);
 }
 #endif
 {
 auto value = safeValue.writeAccess<std::unique_lock>(); // ok even pre-C++17
+CHECK_EQ(&*value, &safeValue.unsafe());
+CHECK_EQ(value.lock.mutex(), &safeValue.mutex());
 CHECK_EQ(*value, 42);
 }
 }
@@ -93,21 +98,23 @@ TEST_CASE("Readme one liners")
 {
 safe::Safe<int> safeValue;
 *safeValue.writeAccess() = 42;
+CHECK_EQ(safeValue.unsafe(), 42);
 {
-int value = *safeValue.readAccess();
-CHECK_EQ(value, 42);
+int copy = *safeValue.readAccess();
+CHECK_EQ(copy, 42);
 }
 {
-int value = *safeValue.writeAccess(); // this also works...
-CHECK_EQ(value, 42);
-}
+int copy = *safeValue.writeAccess(); // this also works...
 // *safeValue.readAccess() = 42; // but this obviously doesn't!
-{
+CHECK_EQ(copy, 42);
+}
 safeValue.assign(43);
 CHECK_EQ(safeValue.unsafe(), 43);
+{
 safeValue.assign(42);
-int value = safeValue.copy();
-CHECK_EQ(value, 42);
+CHECK_EQ(safeValue.unsafe(), 42);
+int copy = safeValue.copy();
+CHECK_EQ(copy, 42);
 }
 }
 
@@ -121,6 +128,7 @@ safe::Safe<int&, std::mutex> refmut(safe::default_construct_mutex, value);
 safe::Safe<int, std::mutex&> valref(mutex, 42);
 safe::Safe<int&, std::mutex&> refref(mutex, value);
 CHECK_EQ(&refmut.unsafe(), &value);
+CHECK_EQ(valref.unsafe(), 42);
 CHECK_EQ(&valref.mutex(), &mutex);
 CHECK_EQ(&refref.unsafe(), &value);
 CHECK_EQ(&refref.mutex(), &mutex);
@@ -135,6 +143,8 @@ safe::Safe<int, std::mutex&> valueDefault(mutex); // mutex is initialized, and v
 safe::Safe<int, std::mutex> mutexDefaultTag(safe::default_construct_mutex, 42); // mutex is default constructed, and value is initialized
 safe::Safe<int, std::mutex> mutexDefaultBraces({}, 42);
 CHECK_EQ(noDefault.unsafe(), 42);
+CHECK_EQ(&noDefault.mutex(), &mutex);
+CHECK_EQ(&valueDefault.mutex(), &mutex);
 CHECK_EQ(mutexDefaultTag.unsafe(), 42);
 CHECK_EQ(mutexDefaultBraces.unsafe(), 42);
 }
@@ -149,20 +159,25 @@ CHECK_EQ(safeValue.mutex().try_lock(), false);
 // Fortunately, arguments passed to WriteAccess's constructor are forwarded to the lock's constructor.
 {
 safe::WriteAccess<safe::Safe<int>> value(safeValue, std::adopt_lock);
+CHECK_EQ(&*value, &safeValue.unsafe());
 }
 CHECK_EQ(safeValue.mutex().try_lock(), true);
 {
 safe::Safe<int>::WriteAccess<> value(safeValue, std::adopt_lock);
+CHECK_EQ(&*value, &safeValue.unsafe());
 }
 CHECK_EQ(safeValue.mutex().try_lock(), true);
 #if __cplusplus >= 201703L
 {
 auto value = safeValue.writeAccess(std::adopt_lock);
-CHECK_EQ(safeValue.mutex().try_lock(), true);
+CHECK_EQ(&*value, &safeValue.unsafe());
 }
+CHECK_EQ(safeValue.mutex().try_lock(), true);
 #endif
 {
 auto value = safeValue.writeAccess<std::unique_lock>(std::adopt_lock);
+CHECK_EQ(&*value, &safeValue.unsafe());
+CHECK_EQ(value.lock.mutex(), &safeValue.mutex());
 }
 CHECK_EQ(safeValue.mutex().try_lock(), true);
 }
@@ -180,7 +195,9 @@ safe::Safe<int&, std::mutex&> safeValue(lousyMutex, unsafeValue);
 TEST_CASE("Readme condition variable")
 {
 std::condition_variable cv;
-safe::Safe<int> value;
-safe::Safe<int>::WriteAccess<std::unique_lock> valueAccess(value);
-cv.wait(valueAccess.lock, [](){return true;});
+safe::Safe<int> safeValue;
+safe::Safe<int>::WriteAccess<std::unique_lock> value(safeValue);
+cv.wait(value.lock, [](){return true;});
+CHECK_EQ(&*value, &safeValue.unsafe());
+CHECK_EQ(value.lock.mutex(), &safeValue.mutex());
 }
