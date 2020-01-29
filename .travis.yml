@@ -9,7 +9,10 @@ jobs:
   - os: linux
     dist: trusty
     compiler: gcc
-  # It doesn't compile with clang on trusty... so we don't do it!
+  # clang does not find <shared_mutex> on trusty... so we skip this config!
+  # - os: linux
+  #   dist: trusty
+  #   compiler: clang
   - os: linux
     dist: xenial
     compiler: gcc

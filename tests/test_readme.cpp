@@ -158,9 +158,9 @@ CHECK_EQ(safeValue.mutex().try_lock(), true);
 #if __cplusplus >= 201703L
 {
 auto value = safeValue.writeAccess(std::adopt_lock);
+CHECK_EQ(safeValue.mutex().try_lock(), true);
 }
 #endif
-CHECK_EQ(safeValue.mutex().try_lock(), true);
 {
 auto value = safeValue.writeAccess<std::unique_lock>(std::adopt_lock);
 }
