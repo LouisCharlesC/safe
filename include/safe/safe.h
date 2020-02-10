@@ -249,7 +249,7 @@ namespace safe
 		 */
 		template<typename MutexArg, typename... ValueArgs>
 		explicit Safe(MutexArg&& mutexArg, ValueArgs&&... valueArgs):
-			m_mutex(std::forward<MutexArg>(mutexArg)),
+			m_mutex{std::forward<MutexArg>(mutexArg)},
 			m_value(std::forward<ValueArgs>(valueArgs)...)
 		{}
 
