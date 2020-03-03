@@ -43,6 +43,6 @@ install:
 script:
 - mkdir build
 - cd build
-- cmake -D CMAKE_BUILD_TYPE=Release ../tests
+- cmake -D CMAKE_BUILD_TYPE=Debug ../tests
 - make -j2
 - ./tests

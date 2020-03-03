@@ -23,5 +23,7 @@ set_target_properties(
 		CXX_EXTENSIONS NO
 )
 
+add_test(NAME safe.${TEST_MAIN} COMMAND ${TEST_MAIN})
+
 # Adds a 'coverage' target to compile ${TEST_MAIN}.
 include(CoverageTarget)
