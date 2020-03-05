@@ -9,8 +9,9 @@ include(Warnings)
 find_package(safe 1.0 CONFIG REQUIRED)
 find_package(doctest CONFIG REQUIRED )
 
+find_package(Threads REQUIRED)
 add_executable(${PROJECT_NAME} test_main.cpp test_readme.cpp test_safe.cpp)
-target_link_libraries(${PROJECT_NAME} PRIVATE safe::safe doctest::doctest)
+target_link_libraries(${PROJECT_NAME} PRIVATE safe::safe doctest::doctest Threads::Threads)
 target_set_warnings(${PROJECT_NAME} ENABLE ALL AS_ERROR ALL DISABLE Annoying)
 set_target_properties(
 	${PROJECT_NAME}
