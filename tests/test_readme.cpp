@@ -160,21 +160,25 @@ safeValue.mutex().lock(); // with the mutex already locked...
 safe::WriteAccess<safe::Safe<int>> value(safeValue, std::adopt_lock);
 CHECK_EQ(&*value, &safeValue.unsafe());
 }
+CHECK_EQ(safeValue.mutex().try_lock(), true);
 {
 safe::Safe<int>::WriteAccess<> value(safeValue, std::adopt_lock);
 CHECK_EQ(&*value, &safeValue.unsafe());
 }
+CHECK_EQ(safeValue.mutex().try_lock(), true);
 #if __cplusplus >= 201703L
 {
 auto value = safeValue.writeAccess(std::adopt_lock);
 CHECK_EQ(&*value, &safeValue.unsafe());
 }
+CHECK_EQ(safeValue.mutex().try_lock(), true);
 #endif
 {
 auto value = safeValue.writeAccess<std::unique_lock>(std::adopt_lock);
 CHECK_EQ(&*value, &safeValue.unsafe());
 CHECK_EQ(value.lock.mutex(), &safeValue.mutex());
 }
+CHECK_EQ(safeValue.mutex().try_lock(), true);
 }
 
 TEST_CASE("Readme legacy")
