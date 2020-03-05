@@ -152,51 +152,35 @@ CHECK_EQ(mutexDefaultBraces.unsafe(), 42);
 TEST_CASE("Readme flexibly construct lock")
 {
 safe::Safe<int> safeValue; // given a Safe object
-std::cout << "Before lock" << std::endl;
 safeValue.mutex().lock(); // with the mutex already locked...
-std::cout << "After lock" << std::endl;
 // Because the mutex is already locked, you need to pass the std::adopt_lock tag to std::lock_guard when you construct your Access object.
 
 // Fortunately, arguments passed to WriteAccess's constructor are forwarded to the lock's constructor.
 {
-std::cout << "Before adopt" << std::endl;
 safe::WriteAccess<safe::Safe<int>> value(safeValue, std::adopt_lock);
-std::cout << "After adopt" << std::endl;
 CHECK_EQ(&*value, &safeValue.unsafe());
 }
-std::cout << "Before lock" << std::endl;
+
 safeValue.mutex().lock();
-std::cout << "After lock" << std::endl;
 {
-std::cout << "Before adopt" << std::endl;
 safe::Safe<int>::WriteAccess<> value(safeValue, std::adopt_lock);
-std::cout << "After adopt" << std::endl;
 CHECK_EQ(&*value, &safeValue.unsafe());
 }
-std::cout << "Before lock" << std::endl;
-CHECK_EQ(safeValue.mutex().try_lock(), true);
-std::cout << "After lock" << std::endl;
+
 #if __cplusplus >= 201703L
+safeValue.mutex().lock();
 {
-std::cout << "Before adopt" << std::endl;
 auto value = safeValue.writeAccess(std::adopt_lock);
-std::cout << "After adopt" << std::endl;
 CHECK_EQ(&*value, &safeValue.unsafe());
 }
-std::cout << "Before lock" << std::endl;
-CHECK_EQ(safeValue.mutex().try_lock(), true);
-std::cout << "After lock" << std::endl;
 #endif
+
+safeValue.mutex().lock();
 {
-std::cout << "Before adopt" << std::endl;
 auto value = safeValue.writeAccess<std::unique_lock>(std::adopt_lock);
-std::cout << "After adopt" << std::endl;
 CHECK_EQ(&*value, &safeValue.unsafe());
 CHECK_EQ(value.lock.mutex(), &safeValue.mutex());
 }
-std::cout << "Before lock" << std::endl;
-CHECK_EQ(safeValue.mutex().try_lock(), true);
-std::cout << "After lock" << std::endl;
 }
 
 TEST_CASE("Readme legacy")
