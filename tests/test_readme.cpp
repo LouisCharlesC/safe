@@ -164,25 +164,39 @@ safe::WriteAccess<safe::Safe<int>> value(safeValue, std::adopt_lock);
 std::cout << "After adopt" << std::endl;
 CHECK_EQ(&*value, &safeValue.unsafe());
 }
+std::cout << "Before lock" << std::endl;
 safeValue.mutex().lock();
+std::cout << "After lock" << std::endl;
 {
+std::cout << "Before adopt" << std::endl;
 safe::Safe<int>::WriteAccess<> value(safeValue, std::adopt_lock);
+std::cout << "After adopt" << std::endl;
 CHECK_EQ(&*value, &safeValue.unsafe());
 }
+std::cout << "Before lock" << std::endl;
 CHECK_EQ(safeValue.mutex().try_lock(), true);
+std::cout << "After lock" << std::endl;
 #if __cplusplus >= 201703L
 {
+std::cout << "Before adopt" << std::endl;
 auto value = safeValue.writeAccess(std::adopt_lock);
+std::cout << "After adopt" << std::endl;
 CHECK_EQ(&*value, &safeValue.unsafe());
 }
+std::cout << "Before lock" << std::endl;
 CHECK_EQ(safeValue.mutex().try_lock(), true);
+std::cout << "After lock" << std::endl;
 #endif
 {
+std::cout << "Before adopt" << std::endl;
 auto value = safeValue.writeAccess<std::unique_lock>(std::adopt_lock);
+std::cout << "After adopt" << std::endl;
 CHECK_EQ(&*value, &safeValue.unsafe());
 CHECK_EQ(value.lock.mutex(), &safeValue.mutex());
 }
+std::cout << "Before lock" << std::endl;
 CHECK_EQ(safeValue.mutex().try_lock(), true);
+std::cout << "After lock" << std::endl;
 }
 
 TEST_CASE("Readme legacy")
