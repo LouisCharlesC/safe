@@ -24,7 +24,7 @@ namespace safe
 		ReadWrite
 	};
 
-	template<template<typename> class LockType>
+	template<template<class> class LockType>
 	struct AccessTraits
 	{
 		static constexpr bool IsReadOnly = false;
