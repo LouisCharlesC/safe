@@ -354,3 +354,6 @@ namespace safe
 		template<typename> class LockType=DefaultReadWriteLock>
 	using WriteAccess = typename SafeType::template WriteAccess<LockType>;
 }  // namespace safe
+
+#undef EXPLICIT_IF_CPP17
+#undef EXPLICITLY_CONSTRUCT_RETURN_TYPE_IF_CPP17
