@@ -6,7 +6,7 @@ include(CTest)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 include(Warnings)
 
-find_package(safe 1.0 CONFIG REQUIRED)
+find_package(safe CONFIG REQUIRED)
 find_package(doctest CONFIG REQUIRED )
 
 add_executable(${PROJECT_NAME} test_main.cpp test_readme.cpp test_safe.cpp)
