@@ -29,22 +29,12 @@ namespace safe
 		{
 			/// Mutable Type object.
 			mutable Type get;
-
-			MutableIfNotReference() = default;
-			template<typename... Args>
-			explicit MutableIfNotReference(Args&&... args):
-				get(std::forward<Args>(args)...)
-			{}
 		};
 		template<typename Type>
 		struct MutableIfNotReference<Type&>
 		{
 			/// Reference to a Type object.
 			Type& get;
-
-			explicit MutableIfNotReference(Type& ref):
-				get(ref)
-			{}
 		};
 	} // namespace impl
 } // namespace safe
