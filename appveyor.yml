@@ -2,9 +2,6 @@ image:
 - Visual Studio 2019
 - Visual Studio 2017
 - Visual Studio 2015
-- Ubuntu1804
-- Ubuntu1604
-- macOS
 configuration:
 - Debug
 - Release
@@ -14,43 +11,30 @@ platform:
 - ARM
 - Any CPU
 init:
-- cmd: >-
+- pwsh: >-
     cmake --version
-
     msbuild /version
 install:
 - pwsh: >-
     git clone https://github.com/onqtam/doctest.git
-
     cd doctest
-
     mkdir build
-
     cd build
-
     cmake -D DOCTEST_WITH_TESTS=OFF -D DOCTEST_WITH_MAIN_IN_STATIC_LIB=OFF -D CMAKE_CONFIGURATION_TYPES=Release -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=$env:APPVEYOR_BUILD_FOLDER/../share ..
-
     cmake --build . --config Release --target install
 build_script:
 - pwsh: >-
     cd $env:APPVEYOR_BUILD_FOLDER
-
     mkdir build
-
     cd build
-
     mkdir install
-
     cd install
-
     cmake -D CMAKE_CONFIGURATION_TYPES=$env:CONFIGURATION -D CMAKE_BUILD_TYPE=$env:CONFIGURATION -D CMAKE_INSTALL_PREFIX=$env:APPVEYOR_BUILD_FOLDER/../share ../..
-
     cmake --build . --config $env:CONFIGURATION --target install
-
     cd ..
-
     cmake -D CMAKE_CONFIGURATION_TYPES=$env:CONFIGURATION -D CMAKE_BUILD_TYPE=$env:CONFIGURATION -D CMAKE_PREFIX_PATH=$env:APPVEYOR_BUILD_FOLDER/../share ../tests
-
     cmake --build . --config $env:CONFIGURATION
-
-    ctest --output-on-failure --timeout 10 -C $env:CONFIGURATION
+test_script:
+- cmd: >-
+    cd build
+    ctest --output-on-failure --timeout 10 -C %CONFIGURATION%
