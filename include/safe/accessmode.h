@@ -24,24 +24,24 @@ namespace safe
 		ReadWrite
 	};
 
-	template<template<typename> class LockType>
+	template<typename LockType>
 	struct AccessTraits
 	{
 		static constexpr bool IsReadOnly = false;
 	};
-	template<>
-	struct AccessTraits<std::lock_guard>
+	template<typename MutexType>
+	struct AccessTraits<std::lock_guard<MutexType>>
 	{
 		static constexpr bool IsReadOnly = false;
 	};
-	template<>
-	struct AccessTraits<std::unique_lock>
+	template<typename MutexType>
+	struct AccessTraits<std::unique_lock<MutexType>>
 	{
 		static constexpr bool IsReadOnly = false;
 	};
 #if __cplusplus >= 201402L
-	template<>
-	struct AccessTraits<std::shared_lock>
+	template<typename MutexType>
+	struct AccessTraits<std::shared_lock<MutexType>>
 	{
 		static constexpr bool IsReadOnly = true;
 	};

@@ -153,7 +153,6 @@ TEST_CASE("Readme flexibly construct lock")
 {
 safe::Safe<int> safeValue; // given a Safe object
 safeValue.mutex().lock(); // with the mutex already locked...
-CHECK_EQ(safeValue.mutex().try_lock(), false);
 // Because the mutex is already locked, you need to pass the std::adopt_lock tag to std::lock_guard when you construct your Access object.
 
 // Fortunately, arguments passed to WriteAccess's constructor are forwarded to the lock's constructor.
@@ -161,25 +160,27 @@ CHECK_EQ(safeValue.mutex().try_lock(), false);
 safe::WriteAccess<safe::Safe<int>> value(safeValue, std::adopt_lock);
 CHECK_EQ(&*value, &safeValue.unsafe());
 }
-CHECK_EQ(safeValue.mutex().try_lock(), true);
+
+safeValue.mutex().lock();
 {
 safe::Safe<int>::WriteAccess<> value(safeValue, std::adopt_lock);
 CHECK_EQ(&*value, &safeValue.unsafe());
 }
-CHECK_EQ(safeValue.mutex().try_lock(), true);
+
 #if __cplusplus >= 201703L
+safeValue.mutex().lock();
 {
 auto value = safeValue.writeAccess(std::adopt_lock);
 CHECK_EQ(&*value, &safeValue.unsafe());
 }
-CHECK_EQ(safeValue.mutex().try_lock(), true);
 #endif
+
+safeValue.mutex().lock();
 {
 auto value = safeValue.writeAccess<std::unique_lock>(std::adopt_lock);
 CHECK_EQ(&*value, &safeValue.unsafe());
 CHECK_EQ(value.lock.mutex(), &safeValue.mutex());
 }
-CHECK_EQ(safeValue.mutex().try_lock(), true);
 }
 
 TEST_CASE("Readme legacy")

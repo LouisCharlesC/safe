@@ -32,7 +32,7 @@ install:
 - git clone https://github.com/onqtam/doctest.git
 - mkdir doctest/build
 - cd doctest/build
-- cmake ..
+- cmake -D DOCTEST_WITH_TESTS=OFF -D DOCTEST_WITH_MAIN_IN_STATIC_LIB=OFF -D CMAKE_BUILD_TYPE=Release ..
 - sudo make -j2 install
 - cd $TRAVIS_BUILD_DIR
 - mkdir install
@@ -43,6 +43,6 @@ install:
 script:
 - mkdir build
 - cd build
-- cmake -D CMAKE_BUILD_TYPE=Release ../tests
+- cmake -D CMAKE_BUILD_TYPE=Debug ../tests
 - make -j2
 - ./tests

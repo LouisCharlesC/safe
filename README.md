@@ -1,6 +1,7 @@
 # *Every variable protected by a mutex should be wrapped with safe.*
 
 [![Build Status](https://travis-ci.org/LouisCharlesC/safe.svg?branch=master)](https://travis-ci.org/LouisCharlesC/safe)
+[![Build status](https://ci.appveyor.com/api/projects/status/9q4mvbg5y630x6kp/branch/master?svg=true)](https://ci.appveyor.com/project/LouisCharlesC/safe/branch/master)
 ## Contents
 *safe* is a header-only library that makes code with mutexes safer and easier to understand.  
 This readme will walk you through the important features of the library using several code examples. Read on, and enjoy safe mutexes!
@@ -110,7 +111,7 @@ However, if all you need to do is assign a new value, then you might as well use
 ```c++
 safeValue.assign(42);
 ```
-Finally, to get a copy of the value object, call the copy function:
+Finally, if a copy of the value object is all you need, call the copy function:
 ```c++
 int value = safeValue.copy();
 ```
@@ -193,7 +194,7 @@ cv.wait(value.lock, [](){return true;});
 ```
 ## Advanced usage
 ### Enforcing read-only access
-You can inform the *safe* library that some locks that you use are read-only (e.g. std::shared_lock, boost::shared_lock_guard). If you do so, trying to instantiate a WriteAccess object with these locks will trigger a compilation error. Use the trait class safe::LockTraits to customize this behavior.  
+You can inform the *safe* library that some locks that you use are read-only (e.g. std::shared_lock, boost::shared_lock_guard). If you do so, trying to instantiate a WriteAccess object with these locks will trigger a compilation error. Use the trait class safe::LockTraits to customize this behavior.
 
 Here is how the trait works:
 - If no specialization of the type trait exists for a lock type, the lock can be used with read-write and read-only Access objects.
@@ -203,11 +204,12 @@ Here is how the trait works:
 
 As an example, here is how to specialize the trait for std::shared_lock (you will find this exact code snippet in safe/traits.h):
 ```c++
-template<>
-struct AccessTraits<std::shared_lock>
+template<typename MutexType>
+struct AccessTraits<std::shared_lock<MutexType>>
 {
 	static constexpr bool IsReadOnly = true;
 };
 ```
 # Acknowledgment
+Thanks to all contributors, issue raisers and stargazers!
 Most cmake code comes from this repo: https://github.com/bsamseth/cpp-project and Craig Scott's CppCon 2019 talk: Deep CMake for Library Authors. Many thanks to the authors!
