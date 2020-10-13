@@ -5,7 +5,7 @@ write_basic_package_version_file(
 	COMPATIBILITY SameMajorVersion
 )
 configure_package_config_file(
-	"${CMAKE_MODULE_PATH}/${PROJECT_NAME}Config.cmake.in"
+	"${CMAKE_CURRENT_LIST_DIR}/${PROJECT_NAME}Config.cmake.in"
 	"${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
 	INSTALL_DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/${PROJECT_NAME}/cmake
 )
