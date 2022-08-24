@@ -1,0 +1,27 @@
+name: CMake
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        build_type: ['Release', 'Debug']
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Configure
+      run: cmake -B ${{github.workspace}}/build/${{matrix.build_type}}
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build/${{matrix.build_type}} -DBUILD_TESTING=ON -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/${{matrix.build_type}}" --config ${{env.BUILD_TYPE}} --target install
+
+    - name: Test
+      run: ctest -C ${{env.BUILD_TYPE}}
+      
+      
+      
+      
