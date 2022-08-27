@@ -16,12 +16,7 @@ FetchContent_MakeAvailable(DocTest)
 add_executable(safe_tests test_main.cpp test_readme.cpp test_safe.cpp)
 target_link_libraries(safe_tests PRIVATE safe doctest)
 target_set_warnings(safe_tests ENABLE ALL AS_ERROR ALL DISABLE Annoying)
-set_target_properties(
-	safe_tests
-	PROPERTIES
-		CXX_STANDARD 17
-		CXX_EXTENSIONS NO
-)
+target_compile_features(safe_tests INTERFACE cxx_std_17)
 
 include(CTest)
 add_test(NAME safe.safe_tests COMMAND safe_tests -s)
