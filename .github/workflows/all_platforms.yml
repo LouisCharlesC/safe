@@ -23,4 +23,4 @@ jobs:
     - name: Test
       env:
           CTEST_OUTPUT_ON_FAILURE: 1
-      run: ctest --test-dir ${{github.workspace}}/build/${{matrix.build_type}}
+      run: ctest -C ${{matrix.build_type}} --test-dir ${{github.workspace}}/build/${{matrix.build_type}}
