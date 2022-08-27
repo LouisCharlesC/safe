@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.9.2)
 
 project(safe_tests LANGUAGES CXX)
 
-include(CTest)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(Warnings)
 
@@ -24,4 +23,7 @@ set_target_properties(
 		CXX_EXTENSIONS NO
 )
 
+include(CTest)
 add_test(NAME safe.safe_tests COMMAND safe_tests -s)
+include(${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake)
+doctest_discover_tests(safe_tests)
