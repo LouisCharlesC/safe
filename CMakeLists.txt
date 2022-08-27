@@ -13,6 +13,7 @@ target_include_directories(${PROJECT_NAME} INTERFACE
 	$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_11)
+add_library(safe::safe ALIAS safe)
 
 if(BUILD_TESTING)
 	enable_testing()
