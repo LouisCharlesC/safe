@@ -14,11 +14,15 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Configure
-      run: cmake -B ${{github.workspace}}/build/${{matrix.build_type}} -DBUILD_TESTING=ON -DCMAKE_CXX_STANDARD=${{matrix.cxx_std}} -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/${{matrix.build_type}}"
+    - name: Build with cxx standard specified
+      run: |
+        cmake -B ${{github.workspace}}/build/${{matrix.build_type}} -DCMAKE_CXX_STANDARD=${{matrix.cxx_std}} -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/${{matrix.build_type}}"
+        cmake --build ${{github.workspace}}/build/${{matrix.build_type}} --config ${{matrix.build_type}} --target install
 
-    - name: Build
-      run: cmake --build ${{github.workspace}}/build/${{matrix.build_type}} --config ${{matrix.build_type}} --target install
+    - name: Build tests with install space
+      run: |
+        cmake -S ${{github.workspace}}/tests -B ${{github.workspace}}/build-tests-standalone/${{matrix.build_type}} -DCMAKE_CXX_STANDARD=${{matrix.cxx_std}}
+        cmake --build ${{github.workspace}}/build-tests-standalone/${{matrix.build_type}} --config ${{matrix.build_type}}
 
     - name: Test
       env:
