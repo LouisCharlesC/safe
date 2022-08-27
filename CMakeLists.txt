@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.9.2)
 
 cmake_policy(SET CMP0048 NEW)
 project(safe VERSION 1.0.0 LANGUAGES CXX)
+option(BUILD_TESTING "Build tests" ON)
 
 include(GNUInstallDirs)
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
@@ -13,7 +14,10 @@ target_include_directories(${PROJECT_NAME} INTERFACE
 )
 target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_11)
 
-add_subdirectory(tests)
+if(BUILD_TESTING)
+	enable_testing()
+	add_subdirectory(tests)
+endif()
 
 include(InstallTarget)
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
