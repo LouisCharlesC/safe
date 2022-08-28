@@ -1,7 +1,5 @@
 # *Every variable protected by a mutex should be wrapped with safe.*
-
-[![Build Status](https://travis-ci.org/LouisCharlesC/safe.svg?branch=master)](https://travis-ci.org/LouisCharlesC/safe)
-[![Build status](https://ci.appveyor.com/api/projects/status/9q4mvbg5y630x6kp/branch/master?svg=true)](https://ci.appveyor.com/project/LouisCharlesC/safe/branch/master)
+[![build](https://github.com/LouisCharlesC/safe/actions/workflows/all_platforms.yml/badge.svg)](https://github.com/LouisCharlesC/safe/actions/workflows/all_platforms.yml)
 ## Contents
 *safe* is a header-only library that makes code with mutexes safer and easier to understand.  
 This readme will walk you through the important features of the library using several code examples. Read on, and enjoy safe mutexes!
