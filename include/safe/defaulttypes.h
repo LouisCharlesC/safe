@@ -1,13 +1,7 @@
-/**
- * @file defaulttypes.h
- * @author L.-C. C.
- * @brief 
- * @version 0.1
- * @date 2020-01-29
- * 
- * @copyright Copyright (c) 2020
- * 
- */
+// Copyright(c) 2019 Louis-Charles Caron
+// This file is part of the safe library (https://github.com/LouisCharlesC/safe).
+// Use of this source code is governed by an MIT-style license that can be
+// found in the LICENSE file or at https://opensource.org/licenses/MIT.
 
 #pragma once
 
@@ -16,8 +10,8 @@
 namespace safe
 {
 	using DefaultMutex = std::mutex;
-	template<typename MutexType>
+	template <typename MutexType>
 	using DefaultReadOnlyLock = std::lock_guard<MutexType>;
-	template<typename MutexType>
+	template <typename MutexType>
 	using DefaultReadWriteLock = std::lock_guard<MutexType>;
-}  // namespace safe
+} // namespace safe
