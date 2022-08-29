@@ -56,18 +56,100 @@ std::cout << baz << std::endl; // all good (remember, baz has no mutex!)
 Since C++11, the standard library provides mutexes, like std::mutex, along with tools to facilitate their usage, like std::lock_guard and std::unique_lock. These are sufficient to write safe multithreaded code, but it is all too easy to write code you think is safe but actually is not. Typical mistakes are: locking the wrong mutex and accessing the value object before locking (or after unlocking) the mutex. Other minor mistakes like unnecessarily locking or keeping a mutex locked for too long can also be avoided.  
 
 *safe* aims at preventing common mutex usage mistakes by providing tools that complement the C++ standard library. Using *safe*, you will find it much easier to protect a variable using a mutex, and your code will be easier to understand.
+## Installation
+Mutiples ways are available to "install" the library. It's a header onyl so it's farly easy to do. for any OS.
+
+### Method 1: Simply copy the files in your project
+*safe* is a header-only library. Using the library can simply mean copy the contents of the include/ folder to some place of your convenience. This is the most straightforward installation method.
+
+### Method 2: via CMake FetchContent (CMake > 3.14)
+
+```CMake
+cmake_minimum_required(VERSION 3.14)
+project(my_project)
+
+FetchContent_Declare(
+  safe
+  GIT_REPOSITORY https://github.com/LouisCharlesC/safe.git
+  GIT_TAG        v1.1.0
+)
+FetchContent_MakeAvailable(safe)
+
+add_executable(my_project my_project.cc)
+target_link_library(my_project safe::safe)
+
+```
+
+This a relatively new method, with great flexibility. Needs a recent CMake version (3.14 min).
+
+NOTE: `find_package(safe CONFIG REQUIRED)` is not needed with this method.
+
+
+### Method 3: Install locally via CMake
+
+```bash
+git clone https://github.com/louischarlescaron/safe
+
+cd safe
+cmake -B safe-build -DCMAKE_INSTALL_PREFIX="$(pwd)/safe-install"
+cmake --build safe-build --config Release --target install
+```
+
+Then link this local installation path to you local project:
+
+`my_project.cc`
+```cpp
+#include <safe/safe.h>
+int main() {}
+```
+`CMakelists.txt`
+```cmake
+cmake_minimum_required(VERSION 3.11)
+project(my_project)
+
+find_package(safe CONFIG REQUIRED)
+
+add_executable(my_project my_project.cc)
+target_link_library(my_project safe::safe)
+```
+
+and build with:
+```bash
+cd my_project
+cmake -B build -DCMAKE_PREFIX_PATH="/path/to/safe-install"
+cmake --build build --config Release
+```
+
+NOTE: `CMAKE_PREFIX_PATH` is used to tell `find_package()` where to look for libraries. `/path/to/safe-install` is not a standard path but it's easier to remove when needed.
+
+### Method 4: Install system-wide via CMake (not recommended)
+
+```bash
+git clone https://github.com/LouisCharlesC/safe
+
+cd safe
+cmake -B build
+sudo cmake --build build --config Release --target install
+```
+
+This will go into `/usr/local/include` by default. Although this method works, it is not recommended as it's very difficult to uninstall the library or deal with versions.
+
+When you build your own library, you **won't** need to append `-DCMAKE_PREFIX_PATH="/path/to/safe-install"`. CMake will find it as `/usr/local` is a standard path.
+
+
+### (coming soon) Package managers
+
+So far, only debian is supported. vcpkg will likely be supported in the future.
+
+Alternately, you could install the library using cmake. A typical install procedure is:
+```bash
+sudo apt install safe
+```
+
 ## Basic usage
 The *safe* library defines the Safe and Access class templates. They are meant to replace the mutexes and locks in your code. *safe* does not offer much more functionality than mutexes and locks do, they simply make their usage safer.  
 Here is the simplest way to replace mutexes and locks by *safe* objects:
-### Make the library available in your build system
-*safe* is a header-only library. Using the library can simply mean copy the contents of the include/ folder to some place of your convenience. Alternately, you could install the library using cmake. A typical install procedure is:
-```bash
-mkdir build
-cd build
-cmake ..
-sudo cmake --build . --target install
-```
-Hopefully this works on any OS. It should copy the library to the right os-specific location so you can succesfully `#include <safe/safe.h>`. It will also create the cmake specific files that will allow you to use `find_package(safe)` in your cmake scripts.
+
 ### Include the library's single header
 ```c++
 #include <safe/safe.h>
