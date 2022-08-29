@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.9.2)
 
 cmake_policy(SET CMP0048 NEW)
-project(safe VERSION 1.0.0 LANGUAGES CXX)
+project(safe VERSION 1.1.0 LANGUAGES CXX)
 option(BUILD_TESTING "Build tests" ON)
 
 include(GNUInstallDirs)
