@@ -24,6 +24,5 @@ target_set_warnings(safe_tests ENABLE ALL AS_ERROR ALL DISABLE Annoying)
 target_compile_features(safe_tests INTERFACE cxx_std_17)
 
 include(CTest)
-add_test(NAME safe.safe_tests COMMAND safe_tests -s)
 include(${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake)
 doctest_discover_tests(safe_tests)
