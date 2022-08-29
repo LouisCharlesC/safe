@@ -19,7 +19,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(DocTest)
 
 add_executable(safe_tests test_main.cpp test_readme.cpp test_safe.cpp)
-target_link_libraries(safe_tests PRIVATE safe::safe doctest)
+target_link_libraries(safe_tests PRIVATE safe::safe doctest::doctest)
 target_set_warnings(safe_tests ENABLE ALL AS_ERROR ALL DISABLE Annoying)
 target_compile_features(safe_tests INTERFACE cxx_std_17)
 
