@@ -1,26 +1,28 @@
 cmake_minimum_required(VERSION 3.9.2)
 
-project(tests LANGUAGES CXX)
+project(safe_tests LANGUAGES CXX)
 
-include(CTest)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+# Detect if used in add_subdirectory() or install space
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+	find_package(safe CONFIG REQUIRED)
+endif()
+
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(Warnings)
 
-find_package(safe CONFIG REQUIRED)
-find_package(doctest CONFIG REQUIRED )
-
-add_executable(${PROJECT_NAME} test_main.cpp test_readme.cpp test_safe.cpp)
-target_link_libraries(${PROJECT_NAME} PRIVATE safe::safe doctest::doctest)
-target_set_warnings(${PROJECT_NAME} ENABLE ALL AS_ERROR ALL DISABLE Annoying)
-set_target_properties(
-	${PROJECT_NAME}
-	PROPERTIES
-		CXX_STANDARD 17
-		CXX_EXTENSIONS NO
+include(FetchContent)
+FetchContent_Declare(
+        DocTest
+        GIT_REPOSITORY "https://github.com/onqtam/doctest"
+        GIT_TAG "v2.4.9"
 )
+FetchContent_MakeAvailable(DocTest)
 
-add_test(NAME safe.${PROJECT_NAME} COMMAND ${PROJECT_NAME} -s)
+add_executable(safe_tests test_main.cpp test_readme.cpp test_safe.cpp)
+target_link_libraries(safe_tests PRIVATE safe::safe doctest::doctest)
+target_set_warnings(safe_tests ENABLE ALL AS_ERROR ALL DISABLE Annoying)
+target_compile_features(safe_tests INTERFACE cxx_std_17)
 
-set(TEST_MAIN ${PROJECT_NAME})
-# Adds a 'coverage' target to compile ${TEST_MAIN}.
-include(CoverageTarget)
+include(CTest)
+include(${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake)
+doctest_discover_tests(safe_tests)
