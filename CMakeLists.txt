@@ -5,7 +5,7 @@ project(safe VERSION 1.1.0 LANGUAGES CXX)
 option(BUILD_TESTING "Build tests" ON)
 
 include(GNUInstallDirs)
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 add_library(${PROJECT_NAME} INTERFACE)
 target_include_directories(${PROJECT_NAME} INTERFACE
