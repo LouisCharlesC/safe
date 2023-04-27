@@ -250,7 +250,7 @@ Here is how the trait works:
 As an example, here is how to specialize the trait for std::shared_lock (you will find this exact code snippet in safe/accessmode.h):
 ```c++
 template<typename MutexType>
-struct AccessTraits<std::shared_lock<MutexType>>
+struct safe::AccessTraits<std::shared_lock<MutexType>>
 {
 	static constexpr bool IsReadOnly = true;
 };
