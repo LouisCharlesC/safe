@@ -239,7 +239,7 @@ cv.wait(value.lock, [](){return true;});
 ```
 ## Advanced usage
 ### Enforcing read-only access
-You can inform the *safe* library that some locks that you use are read-only (e.g. std::shared_lock, boost::shared_lock_guard). If you do so, trying to instantiate a WriteAccess object with these locks will trigger a compilation error. Use the trait class safe::LockTraits to customize this behavior.
+You can inform the *safe* library that some locks that you use are read-only (e.g. std::shared_lock, boost::shared_lock_guard). If you do so, trying to instantiate a WriteAccess object with these locks will trigger a compilation error. Use the trait class safe::AccessTraits to customize this behavior.
 
 Here is how the trait works:
 - If no specialization of the type trait exists for a lock type, the lock can be used with read-write and read-only Access objects.
