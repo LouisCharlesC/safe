@@ -2,7 +2,7 @@ macro(add_package name depname git_repo git_rev mod_dir)
     unset(${name}_FOUND CACHE) # needed for correct behaviour on rebuilds
 
     if (DEPS STREQUAL "AUTO")
-        find_package (${name} CONFIG)
+        find_package (${name} CONFIG QUIET)
     elseif (DEPS STREQUAL "LOCAL")
         find_package (${name} REQUIRED CONFIG)
     endif()
