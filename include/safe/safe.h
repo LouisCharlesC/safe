@@ -8,7 +8,6 @@
 #pragma once
 
 #include "accessmode.h"
-#include "defaulttypes.h"
 #include "mutableref.h"
 
 #include <type_traits>
@@ -38,7 +37,7 @@ static constexpr DefaultConstructMutex default_construct_mutex;
  * @tparam ValueType The type of the value to protect.
  * @tparam MutexType The type of the mutex.
  */
-template <typename ValueType, typename MutexType = DefaultMutex> class Safe
+template <typename ValueType, typename MutexType = std::mutex> class Safe
 {
   private:
     /// Type ValueType with reference removed, if present
@@ -193,9 +192,9 @@ template <typename ValueType, typename MutexType = DefaultMutex> class Safe
 
   public:
     /// Aliases to ReadAccess and WriteAccess classes for this Safe class.
-    template <template <typename> class LockType = DefaultReadOnlyLock>
+    template <template <typename> class LockType = std::lock_guard>
     using ReadAccess = Access<LockType, AccessMode::ReadOnly>;
-    template <template <typename> class LockType = DefaultReadWriteLock>
+    template <template <typename> class LockType = std::lock_guard>
     using WriteAccess = Access<LockType, AccessMode::ReadWrite>;
 
     /**
@@ -238,32 +237,32 @@ template <typename ValueType, typename MutexType = DefaultMutex> class Safe
     Safe &operator=(const Safe &) = delete;
     Safe &operator=(Safe &&) = delete;
 
-    template <template <typename> class LockType = DefaultReadOnlyLock, typename... LockArgs>
+    template <template <typename> class LockType = std::lock_guard, typename... LockArgs>
     ReadAccess<LockType> readAccess(LockArgs &&...lockArgs) const
     {
         using ReturnType = ReadAccess<LockType>;
         return EXPLICITLY_CONSTRUCT_RETURN_TYPE_IF_CPP17{*this, std::forward<LockArgs>(lockArgs)...};
     }
 
-    template <template <typename> class LockType = DefaultReadWriteLock, typename... LockArgs>
+    template <template <typename> class LockType = std::lock_guard, typename... LockArgs>
     WriteAccess<LockType> writeAccess(LockArgs &&...lockArgs)
     {
         using ReturnType = WriteAccess<LockType>;
         return EXPLICITLY_CONSTRUCT_RETURN_TYPE_IF_CPP17{*this, std::forward<LockArgs>(lockArgs)...};
     }
 
-    template <template <typename> class LockType = DefaultReadOnlyLock, typename... LockArgs>
+    template <template <typename> class LockType = std::lock_guard, typename... LockArgs>
     RemoveRefValueType copy(LockArgs &&...lockArgs) const
     {
         return *readAccess<LockType>(std::forward<LockArgs>(lockArgs)...);
     }
 
-    template <template <typename> class LockType = DefaultReadWriteLock, typename... LockArgs>
+    template <template <typename> class LockType = std::lock_guard, typename... LockArgs>
     void assign(ConstValueReferenceType value, LockArgs &&...lockArgs)
     {
         *writeAccess<LockType>(std::forward<LockArgs>(lockArgs)...) = value;
     }
-    template <template <typename> class LockType = DefaultReadWriteLock, typename... LockArgs>
+    template <template <typename> class LockType = std::lock_guard, typename... LockArgs>
     void assign(RemoveRefValueType &&value, LockArgs &&...lockArgs)
     {
         *writeAccess<LockType>(std::forward<LockArgs>(lockArgs)...) = std::move(value);
@@ -309,18 +308,18 @@ template <typename ValueType, typename MutexType = DefaultMutex> class Safe
  * @brief Type alias for read-only Access.
  *
  * @tparam SafeType The type of Safe object to give read-only access to.
- * @tparam LockType=DefaultReadOnlyLock The type of lock.
+ * @tparam LockType=std::lock_guard The type of lock.
  */
-template <typename SafeType, template <typename> class LockType = DefaultReadOnlyLock>
+template <typename SafeType, template <typename> class LockType = std::lock_guard>
 using ReadAccess = typename SafeType::template ReadAccess<LockType>;
 
 /**
  * @brief Type alias for read-write Access.
  *
  * @tparam SafeType The type of Safe object to give read-write access to.
- * @tparam LockType=DefaultReadWriteLock The type of lock.
+ * @tparam LockType=std::lock_guard The type of lock.
  */
-template <typename SafeType, template <typename> class LockType = DefaultReadWriteLock>
+template <typename SafeType, template <typename> class LockType = std::lock_guard>
 using WriteAccess = typename SafeType::template WriteAccess<LockType>;
 } // namespace safe
 
