@@ -23,13 +23,32 @@
 
 namespace safe
 {
-/**
- * @brief Use this tag to default construct the mutex when constructing a Safe object.
- */
+namespace impl
+{
+template <typename... Ts> struct Last;
+template <typename First, typename Second, typename... Others> struct Last<First, Second, Others...>
+{
+    using type = typename Last<Second, Others...>::type;
+};
+template <typename T> struct Last<T>
+{
+    using type = T;
+};
+template <> struct Last<>
+{
+    using type = void;
+};
+
 struct DefaultConstructMutex
 {
 };
-static constexpr DefaultConstructMutex default_construct_mutex;
+} // namespace impl
+template <typename... Ts> using Last = typename impl::Last<Ts...>::type;
+
+/**
+ * @brief Use this tag to default construct the mutex when constructing a Safe object.
+ */
+static constexpr impl::DefaultConstructMutex default_construct_mutex;
 
 /**
  * @brief Wraps a value together with a mutex.
@@ -190,6 +209,9 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
     /// Reference to MutexType.
     using MutexReferenceType = RemoveRefMutexType &;
 
+    struct UseLastArgumentForMutex {};
+    struct LastArgumentIsATag {};
+
   public:
     /// Aliases to ReadAccess and WriteAccess classes for this Safe class.
     template <template <typename> class LockType = std::lock_guard>
@@ -201,32 +223,53 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
      * @brief Construct a Safe object
      */
     Safe() = default;
-
     /**
-     * @brief Construct a Safe object with default construction of the mutex and perfect forwarding of the other
-     * arguments to construct the value object.
+     * @brief Construct a Safe object, forwarding the last argument to construct the mutex and the other arguments to
+     * construct the value object. This constructor will be selected if the mutex can be constructed from the last
+     * argument of the parameter pack. To avoid using the last argument to construct the mutex, use the
+     * default_construct_mutex tag.
      *
-     * @tparam ValueArgs Deduced from valueArgs.
-     * @param valueArgs Perfect forwarding arguments to construct the value object.
-     * @param tag Indicates that the mutex should be default constructed.
+     * @tparam Args Deduced from args.
+     * @tparam SFINAE constraint.
+     * @param args Perfect forwarding arguments to split between the value and mutex.
      */
-    template <typename... ValueArgs>
-    explicit Safe(DefaultConstructMutex, ValueArgs &&...valueArgs)
-        : m_mutex(), m_value(std::forward<ValueArgs>(valueArgs)...)
+    template <typename... Args,
+              typename std::enable_if<std::is_constructible<MutexType, Last<Args...>>::value, bool>::type = true>
+    explicit Safe(Args &&...args)
+        : Safe(UseLastArgumentForMutex(), std::forward_as_tuple(std::forward<Args>(args)...),
+               std::make_index_sequence<sizeof...(args) - 1>()) // delegate to a private constructor to split the
+                                                                // parameter pack
     {
     }
     /**
-     * @brief Construct a Safe object, forwarding the first argument to construct the mutex and the other arguments to
-     * construct the value object.
+     * @brief Construct a Safe object, forwarding all arguments to construct the value object. This constructor will be
+     * selected if the mutex cannot be constructed from the last argument of the parameter pack.
      *
-     * @tparam MutexArg Deduced from mutexArg.
-     * @tparam ValueArgs Deduced from valueArgs.
-     * @param valueArgs Perfect forwarding arguments to construct the value object.
-     * @param mutexArg Perfect forwarding argument to construct the mutex object.
+     * @tparam Args Deduced from args.
+     * @param args Perfect forwarding arguments to construct the value object.
      */
-    template <typename MutexArg, typename... ValueArgs>
-    explicit Safe(MutexArg &&mutexArg, ValueArgs &&...valueArgs)
-        : m_mutex{std::forward<MutexArg>(mutexArg)}, m_value(std::forward<ValueArgs>(valueArgs)...)
+    template <typename... Args,
+              typename std::enable_if<!std::is_same<const impl::DefaultConstructMutex&, Last<Args...>>::value &&
+                                        !std::is_constructible<MutexType, Last<Args...>>::value, bool>::type = true>
+    explicit Safe(Args &&...args) : m_mutex{}, m_value(std::forward<Args>(args)...)
+    { 
+        
+    }
+    /**
+     * @brief Construct a Safe object, forwarding all arguments but the first (the default_construct_mutex tag) to
+     * construct the value object. This constructor will be selected even if the mutex can be constructed from the last
+     * argument of the parameter pack.
+     *
+     * @tparam Args Deduced from args.
+     * @param default_construct_mutex tag.
+     * @param args Perfect forwarding arguments to construct the value object.
+     */
+    template <typename... Args,
+             typename std::enable_if<std::is_same<const impl::DefaultConstructMutex&, Last<Args...>>::value, bool>::type = true>
+    explicit Safe(Args &&...args)
+        : Safe(LastArgumentIsATag(), std::forward_as_tuple(std::forward<Args>(args)...),
+               std::make_index_sequence<sizeof...(args) - 1>()) // delegate to a private constructor to split the
+                                                                // parameter pack
     {
     }
 
@@ -298,6 +341,20 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
     }
 
   private:
+    template <typename ArgsTuple, size_t... AllButLast>
+    explicit Safe(const UseLastArgumentForMutex, ArgsTuple &&args, std::index_sequence<AllButLast...>)
+        : m_mutex{std::get<sizeof...(AllButLast)>(
+              std::forward<ArgsTuple>(args))},                            // use the last argument to conrtuct the mutex
+          m_value(std::get<AllButLast>(std::forward<ArgsTuple>(args))...) // and the rest to construc the value
+    {
+    }
+    template <typename ArgsTuple, size_t... AllButLast>
+    explicit Safe(const LastArgumentIsATag, ArgsTuple &&args, std::index_sequence<AllButLast...>)
+        : m_mutex{},                            // default construct the mutex since the last argument is a tag
+          m_value(std::get<AllButLast>(std::forward<ArgsTuple>(args))...) // use the rest to construc the value
+    {
+    }
+
     /// The helper object that holds the mutable mutex, or a reference to a mutex.
     impl::MutableIfNotReference<MutexType> m_mutex;
     /// The value to protect.
