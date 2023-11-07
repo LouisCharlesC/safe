@@ -1,13 +1,9 @@
-/**
- * @file test_lockable.cpp
- * @author L.-C. C.
- * @brief
- * @version 0.1
- * @date 2018-11-24
- *
- * @copyright Copyright (c) 2018
- *
- */
+// Copyright (c) 2018-2023 Louis-Charles Caron
+
+// This file is part of the safe library (https://github.com/LouisCharlesC/safe).
+
+// Use of this source code is governed by an MIT-style license that can be
+// found in the LICENSE file or at https://opensource.org/licenses/MIT.
 
 #include <safe/safe.h>
 
