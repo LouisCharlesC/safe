@@ -1,8 +1,8 @@
-// Copyright(c) 2019-2022 Louis-Charles Caron
+// Copyright (c) 2019-2023 Louis-Charles Caron
 
-// This file is part of the safe library.
+// This file is part of the safe library (https://github.com/LouisCharlesC/safe).
 
-// (https://github.com/LouisCharlesC/safe). Use of this source code is governed by an MIT-style license that can be
+// Use of this source code is governed by an MIT-style license that can be
 // found in the LICENSE file or at https://opensource.org/licenses/MIT.
 
 #pragma once
