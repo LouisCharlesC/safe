@@ -85,6 +85,10 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
             typename std::conditional<Mode == AccessMode::ReadOnly, const RemoveRefValueType, RemoveRefValueType>::type;
 
       public:
+        /// Pointer-to-const ValueType
+        using ConstPointerType = const ConstIfReadOnlyValueType *;
+        /// Pointer-to-const ValueType if Mode is ReadOnly, pointer to ValueType otherwise.
+        using PointerType = ConstIfReadOnlyValueType *;
         /// Reference-to-const ValueType
         using ConstReferenceType = const ConstIfReadOnlyValueType &;
         /// Reference-to-const ValueType if Mode is ReadOnly, reference to ValueType otherwise.
@@ -161,25 +165,25 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
 
         /**
          * @brief Const accessor to the value.
-         * @return ConstReferenceType Const pointer to the protected value.
+         * @return ConstPointerType Const pointer to the protected value.
          */
-        ConstReferenceType operator->() const noexcept
+        ConstPointerType operator->() const noexcept
         {
-            return m_value;
+            return &m_value;
         }
 
         /**
          * @brief Accessor to the value.
-         * @return ReferenceType Reference to the protected value.
+         * @return ValuePointerType Pointer to the protected value.
          */
-        ReferenceType operator->() noexcept
+        PointerType operator->() noexcept
         {
-            return m_value;
+            return &m_value;
         }
 
         /**
          * @brief Const accessor to the value.
-         * @return ConstReferenceType Const reference to the protected value.
+         * @return ConstValueReferenceType Const reference to the protected value.
          */
         ConstReferenceType operator*() const noexcept
         {
@@ -188,7 +192,7 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
 
         /**
          * @brief Accessor to the value.
-         * @return ReferenceType Reference to the protected.
+         * @return ValueReferenceType Reference to the protected.
          */
         ReferenceType operator*() noexcept
         {
