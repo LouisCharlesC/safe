@@ -11,6 +11,8 @@
 
 namespace safe
 {
+    // Base template defining default lock types for all mutex types.
+    // Specialize this template as shown in the ReadMe and tests to define your own default locks.
     template<typename MutexType, typename...>
     struct DefaultLocks
     {
@@ -19,7 +21,7 @@ namespace safe
     };
 
     template<typename MutexType>
-    using DefaultReadOnlyLock = typename DefaultLocks<MutexType>::ReadOnly;
+    using DefaultReadOnlyLockType = typename DefaultLocks<MutexType>::ReadOnly;
     template<typename MutexType>
-    using DefaultReadWriteLock = typename DefaultLocks<MutexType>::ReadWrite;
+    using DefaultReadWriteLockType = typename DefaultLocks<MutexType>::ReadWrite;
 } // namespace safe

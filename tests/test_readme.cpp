@@ -5,33 +5,30 @@
 // Use of this source code is governed by an MIT-style license that can be
 // found in the LICENSE file or at https://opensource.org/licenses/MIT.
 
-#include <safe/safe.h>
+#include "safe/safe.h"
 
 #include <doctest/doctest.h>
 
-#include <cassert>
 #include <condition_variable>
 #include <iostream>
-#include <memory>
 #include <mutex>
 #include <string>
-#include <vector>
 
 TEST_CASE("Readme without safe example")
 {
-    std::string foo; // do I need to lock a mutex to safely access this variable ?
-    std::string bar;
-    std::string baz;     // what about this one ?
-    std::mutex fooMutex; // don't forget to change the name of this variable if foo's name changes!
-    std::mutex barMutex;
+std::string foo; // do I need to lock a mutex to safely access this variable ?
+std::string bar;
+std::string baz; // what about this one ?
+std::mutex fooMutex; // don't forget to change the name of this variable if foo's name changes!
+std::mutex barMutex;
 
-    {
-        std::lock_guard<std::mutex> lock(fooMutex); // is this the right mutex for what I am about to do ?
-        foo = "Hello, World!"; // I access foo here, but I could very well access bar, yet barMutex is not locked!
-    }
+{
+	std::lock_guard<std::mutex> lock(fooMutex); // is this the right mutex for what I am about to do ?
+	bar = "Hello, World!"; // Hmm, did I just to something wrong ?
+}
 
-    std::cout << bar << std::endl; // unprotected access, is this intended ?
-    std::cout << baz << std::endl; // what about this access ?
+std::cout << bar << std::endl; // unprotected access, is this intended ?
+std::cout << baz << std::endl; // what about this access ?
 }
 
 TEST_CASE("Readme with safe example")
@@ -48,7 +45,7 @@ TEST_CASE("Readme with safe example")
 
     // std::cout << safeBar << std::endl; // does not compile!
     std::cout << safeBar.unsafe() << std::endl; // unprotected access: clearly expressed!
-    std::cout << baz << std::endl;              // all good (remember, baz has no mutex!)
+    std::cout << baz << std::endl;              // all good this is just a string!
 }
 
 TEST_CASE("Readme basic usage without safe")
@@ -77,13 +74,13 @@ TEST_CASE("Readme basic usage with safe")
     }
 #if __cplusplus >= 201703L
     {
-        auto value = safeValue.writeAccess(); // only with C++17 and later
+        auto value = safeValue.writeLock(); // only with C++17 and later
         CHECK_EQ(&*value, &safeValue.unsafe());
         CHECK_EQ(*value, 42);
     }
 #endif
     {
-        auto value = safeValue.writeAccess<std::unique_lock>(); // ok even pre-C++17
+        auto value = safeValue.writeLock<std::unique_lock>(); // ok even pre-C++17
         CHECK_EQ(&*value, &safeValue.unsafe());
         CHECK_EQ(value.lock.mutex(), &safeValue.mutex());
         CHECK_EQ(*value, 42);
@@ -93,23 +90,15 @@ TEST_CASE("Readme basic usage with safe")
 TEST_CASE("Readme one liners")
 {
     safe::Safe<int> safeValue;
-    *safeValue.writeAccess() = 42;
+    *safeValue.writeLock() = 42;
     CHECK_EQ(safeValue.unsafe(), 42);
     {
-        int copy = *safeValue.readAccess();
+        int copy = *safeValue.readLock();
         CHECK_EQ(copy, 42);
     }
     {
-        int copy = *safeValue.writeAccess(); // this also works...
+        int copy = *safeValue.writeLock(); // this also works...
         // *safeValue.readAccess() = 42; // but this obviously doesn't!
-        CHECK_EQ(copy, 42);
-    }
-    safeValue.assign(43);
-    CHECK_EQ(safeValue.unsafe(), 43);
-    {
-        safeValue.assign(42);
-        CHECK_EQ(safeValue.unsafe(), 42);
-        int copy = safeValue.copy();
         CHECK_EQ(copy, 42);
     }
 }
@@ -136,6 +125,7 @@ TEST_CASE("Readme default construct mutex tag")
     safe::Safe<int, std::mutex> bothDefault;            // mutex and value are default constructed
     safe::Safe<int, std::mutex &> noDefault(42, mutex); // mutex and value are initialized
     safe::Safe<int, std::mutex &> valueDefault(mutex);  // mutex is initialized, and value is default constructed
+    safe::Safe<int, std::mutex> mutexDefault(42); // mutex is default constructed, and value is initialized
     safe::Safe<int, std::mutex> mutexDefaultTag(42, safe::default_construct_mutex); // mutex is default constructed, and value is initialized
     CHECK_EQ(noDefault.unsafe(), 42);
     CHECK_EQ(&noDefault.mutex(), &mutex);
@@ -165,14 +155,14 @@ TEST_CASE("Readme flexibly construct lock")
 #if __cplusplus >= 201703L
     safeValue.mutex().lock();
     {
-        auto value = safeValue.writeAccess(std::adopt_lock);
+        auto value = safeValue.writeLock(std::adopt_lock);
         CHECK_EQ(&*value, &safeValue.unsafe());
     }
 #endif
 
     safeValue.mutex().lock();
     {
-        auto value = safeValue.writeAccess<std::unique_lock>(std::adopt_lock);
+        auto value = safeValue.writeLock<std::unique_lock>(std::adopt_lock);
         CHECK_EQ(&*value, &safeValue.unsafe());
         CHECK_EQ(value.lock.mutex(), &safeValue.mutex());
     }

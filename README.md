@@ -23,7 +23,7 @@ std::mutex barMutex;
 
 {
 	std::lock_guard<std::mutex> lock(fooMutex); // is this the right mutex for what I am about to do ?
-	foo = "Hello, World!"; // I access foo here, but I could very well access bar, yet barMutex is not locked!
+	bar = "Hello, World!"; // Hmm, did I just to something wrong ?
 }
 
 std::cout << bar << std::endl; // unprotected access, is this intended ?
@@ -42,7 +42,7 @@ std::string baz; // now you can see that this variable has no mutex
 }
 
 std::cout << safeBar.unsafe() << std::endl; // unprotected access: clearly expressed!
-std::cout << baz << std::endl; // all good (remember, baz has no mutex!)
+std::cout << baz << std::endl; // all good this is just a string!
 ```
 ## Motivation
 Since C++11, the standard library provides mutexes, like std::mutex, along with tools to facilitate their usage, like std::lock_guard and std::unique_lock. These are sufficient to write safe multithreaded code, but it is all too easy to write code you think is safe but actually is not. Typical mistakes are: locking the wrong mutex and accessing the value object before locking (or after unlocking) the mutex. Other minor mistakes like unnecessary locking or keeping a mutex locked for too long can also be avoided.  
@@ -107,17 +107,9 @@ When you build your own project, you **won't** need to append `-DCMAKE_PREFIX_PA
 ## Basic usage
 The *safe* library defines the Safe and Access class templates. They are meant to replace the mutexes and locks in your code. *safe* does not offer much more functionality than mutexes and locks do, they simply make their usage safer.  
 Here is the simplest way to replace mutexes and locks by Safe objects.
-### Vocabulary
-* *safe*: the library.
-* mutex: a mutex like std::mutex.
-* value object: whatever needs to be protected by the mutex.
-* Safe object: combines a value object and a mutex.
-* lock: an object that manages a mutex using RAII like std::lock_guard and std::unique_lock.
-* Access object: a lock object that also gives pointer-like access to a value object.
-* access mode: Access objects can be created with read-write or read-only behavior. Read-only Access objects are especially useful to enforce the read-only nature of C++14's std::shared_lock and boost::shared_lock_guard.
 ### Include the library's single header
 ```c++
-#include <safe/safe.h>
+#include "safe/safe.h"
 ```
 ### Replace your values and mutexes by Safe objects
 ```c++
@@ -131,7 +123,7 @@ Access objects can either be read-write or read-only. The examples below show di
 // std::lock_guard<std::mutex> lock(mutex);
 safe::WriteAccess<safe::Safe<int>> value(safeValue);
 safe::Safe<int>::WriteAccess<> value(safeValue); // equivalent to the above
-auto value = safeValue.writeAccess(); // nicer, but only with C++17 and later
+auto value = safeValue.writeLock(); // nicer, but only with C++17 and later
 ```
 #### The problem with std::lock_guard
 The last line of the above example only compiles with C++17 and later. This is because of the new rules on temporaries introduced in C++17, and because *safe* uses std::lock_guard by default. std::lock_guard is non-copiable, non-moveable so it cannot be initialized as above prior to C++17. As shown below, using std::unique_lock (which is moveable) is fine:
@@ -144,24 +136,6 @@ You can now safely access the value object *through the Access object*. As long 
 // value = 42;
 *value = 42;
 ```
-#### Use Safe member functions as one-liners, if suitable
-If you need to peform a single access to your value, you can do this using Safe's member functions: `readAccess()`, `writeAccess()`, `copy()` and `assign()`. `readAccess()` and `writeAccess()` will return an Access object, but will let you operate on it in an expressive way. Example:
-```c++
-*safeValue.writeAccess() = 42;
-int value = *safeValue.readAccess();
-int value = *safeValue.writeAccess(); // this also works...
-// *safeValue.readAccess() = 42; // but this obviously doesn't!
-```
-However, if all you need to do is assign a new value, then you might as well use the `assign()` function:
-```c++
-safeValue.assign(42);
-```
-And if you just want a copy, you can call the `copy()` function:
-```c++
-int value = safeValue.copy();
-```
-***Warning: avoid multiple calls to these functions, as each will lock and unlock the mutex.***
-*Be aware that copy/move construction/assignment operators are deleted for Safe objects. That is because copying and moving requires the mutex to be locked, and the safe library aims at making every locking explicit.* Use the copy() and assign() functions instead.
 ## Main features
 ### Safety and clarity
 No more locking the wrong mutex, no more mistaken access outside the safety of a locked mutex. No more naked shared variables, no more plain mutexes lying around and no more *mutable* keyword (ever locked a member mutex variable within a const-qualified member function ?).
@@ -184,17 +158,19 @@ safe::Safe<int&, std::mutex&>;
 ```
 See [this section](#With-legacy-code) for an example of using reference types to deal with legacy code.
 #### Flexibly construct the value object and mutex
-Just remember: the first argument to a Safe constructor is used to construct the mutex, the other arguments are used for the value object.  
-*Note: when constructing a Safe object and the mutex is default constructed but the value object is not, you must pass the safe::default_construct_mutex tag or a set of curly brackets {} as the first constructor argument.*  
+The Safe constructor accepts the arguments needed to construct the value and the mute object. The last argument is forwarded to the mutex constructor and the rest to the value's.  
+If the last argument cannot be used used to construc the mutex, *safe* detects it and forwards everything to the value constructor.  
+If you want to explicitely not use the last argument to construct the mutex object, use the safe::default_construct_mutex as last argument.
+
 Examples:
 ```c++
 std::mutex aMutex;
 
 safe::Safe<int, std::mutex> bothDefault; // mutex and value are default constructed
-safe::Safe<int, std::mutex&> noDefault(aMutex, 42); // mutex and value are initialized
+safe::Safe<int, std::mutex&> noDefault(42, aMutex); // mutex and value are initialized
 safe::Safe<int, std::mutex&> valueDefault(aMutex); // mutex is initialized, and value is default constructed
-safe::Safe<int, std::mutex> mutexDefaultTag(safe::default_construct_mutex, 42); // mutex is default constructed, and value is initialized
-safe::Safe<int, std::mutex> mutexDefaultBraces({}, 42);
+safe::Safe<int, std::mutex> mutexDefaultTag(42); // mutex is default constructed, and value is initialized
+safe::Safe<int, std::mutex> mutexDefaultTag(42, safe::default_construct_mutex); // mutex is default constructed, and value is initialized
 ```
 #### Flexibly construct the Lock objects
 The Access constructors have a variadic parameter pack that is forwarded to the Lock object's constructor. This can be used to pass in standard lock tags such as std::adopt_lock, but also to construct your custom locks that may require additionnal arguments than just the mutex.
@@ -206,13 +182,13 @@ safeValue.mutex().lock(); // with the mutex already locked...
 // No matter how you get your Access objects, you can pass arguments to the lock's constructor.
 safe::WriteAccess<safe::Safe<int>> value(safeValue, std::adopt_lock);
 safe::Safe<int>::WriteAccess<> value(safeValue, std::adopt_lock);
-auto value = safeValue.writeAccess(std::adopt_lock); // again, only in C++17
-auto value = safeValue.writeAccess<std::unique_lock>(std::adopt_lock);
+auto value = safeValue.writeLock(std::adopt_lock); // again, only in C++17
+auto value = safeValue.writeLock<std::unique_lock>(std::adopt_lock);
 ```
 ### Even more safety!
 #### Choose the access mode that suits each access
 You will instatiate one Safe object for every value object you want to protect. But, you will create an Access object every time you want to operate on the value object. For each of these accesses, you can choose whether the access is read-write or read-only.
-#### Force read-only access with shared mutexes and shared_locks
+#### Force read-only access with shared_locks
 Shared mutexes and shared locks allow multiple reading threads to access the value object simultaneously. Unfortunately, using only mutexes and locks, the read-only restriction is not guaranteed to be applied. That is, it is possible to lock a mutex in shared mode and write to the shared value. With *safe*, you can enforce read-only access when using shared locking by using ReadAccess objects. See [this section](#Enforcing-read-only-access) for details.
 ### Compatibility
 #### With legacy code
@@ -255,6 +231,9 @@ struct safe::AccessTraits<std::shared_lock<MutexType>>
 	static constexpr bool IsReadOnly = true;
 };
 ```
+### Avoid some typing by defining your own default lock types
+*safe* uses std::lock_guard by default everywhere. If you know you will always use a certain lock type given some mutex type (for instance, std::unique_lock with std::timed_mutex), you can inform *safe* and it will use these locks by default. To do so, you must specialize the safe::DefaultLock class template. Have a look at the tests/test_default_locks.cpp files. You will see that you can specify a different lock type for read and write accesses.
+
 # Acknowledgment
 Thanks to all contributors, issue raisers and stargazers!
-Most cmake code comes from this repo: https://github.com/bsamseth/cpp-project and Craig Scott's CppCon 2019 talk: Deep CMake for Library Authors. Many thanks to the authors!
+The cmake is inspired from https://github.com/bsamseth/cpp-project and Craig Scott's CppCon 2019 talk: Deep CMake for Library Authors. Many thanks to the authors!

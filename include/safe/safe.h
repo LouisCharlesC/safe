@@ -9,6 +9,7 @@
 
 #include "access_mode.h"
 #include "default_locks.h"
+#include "last.h"
 #include "mutable_ref.h"
 
 #include <type_traits>
@@ -26,30 +27,15 @@ namespace safe
 {
 namespace impl
 {
-template <typename... Ts> struct Last;
-template <typename First, typename Second, typename... Others> struct Last<First, Second, Others...>
-{
-    using type = typename Last<Second, Others...>::type;
-};
-template <typename T> struct Last<T>
-{
-    using type = T;
-};
-template <> struct Last<>
-{
-    using type = void;
-};
-
 struct DefaultConstructMutex
 {
 };
 } // namespace impl
-template <typename... Ts> using Last = typename impl::Last<Ts...>::type;
 
 /**
  * @brief Use this tag to default construct the mutex when constructing a Safe object.
  */
-static constexpr impl::DefaultConstructMutex default_construct_mutex;
+constexpr impl::DefaultConstructMutex default_construct_mutex;
 
 /**
  * @brief Wraps a value together with a mutex.
@@ -145,25 +131,6 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
         }
 
         /**
-         * @brief Construct an Access object from another one. OtherLockType must implement release() like
-         * std::unique_lock does.
-         *
-         * @tparam OtherLockType Deduced from otherAccess.
-         * @tparam OtherMode Deduced from otherAccess.
-         * @tparam OtherLockArgs Deduced from otherLockArgs.
-         * @param otherAccess The Access object to construct from.
-         * @param otherLockArgs Other arguments needed to construct the lock object.
-         */
-        template <template <typename> class OtherLockType, AccessMode OtherMode, typename... OtherLockArgs>
-        EXPLICIT_IF_CPP17 Access(Access<OtherLockType, OtherMode> &otherAccess, OtherLockArgs &&...otherLockArgs)
-            : Access(*otherAccess, *otherAccess.lock.release(), std::adopt_lock,
-                     std::forward<OtherLockArgs>(otherLockArgs)...)
-        {
-            static_assert(OtherMode == AccessMode::ReadWrite || OtherMode == Mode,
-                          "Cannot construct a ReadWrite Access object from a ReadOnly one!");
-        }
-
-        /**
          * @brief Const accessor to the value.
          * @return ConstPointerType Const pointer to the protected value.
          */
@@ -219,9 +186,9 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
 
   public:
     /// Aliases to ReadAccess and WriteAccess classes for this Safe class.
-    template <template <typename> class LockType = DefaultReadOnlyLock>
+    template <template <typename> class LockType = DefaultReadOnlyLockType>
     using ReadAccess = Access<LockType, AccessMode::ReadOnly>;
-    template <template <typename> class LockType = DefaultReadWriteLock>
+    template <template <typename> class LockType = DefaultReadWriteLockType>
     using WriteAccess = Access<LockType, AccessMode::ReadWrite>;
 
     /**
@@ -231,8 +198,8 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
     /**
      * @brief Construct a Safe object, forwarding the last argument to construct the mutex and the other arguments to
      * construct the value object. This constructor will be selected if the mutex can be constructed from the last
-     * argument of the parameter pack. To avoid using the last argument to construct the mutex, use the
-     * default_construct_mutex tag.
+     * argument of the parameter pack. To avoid using the last argument to construct the mutex, add the
+     * default_construct_mutex tag as last argument.
      *
      * @tparam Args Deduced from args.
      * @tparam SFINAE constraint.
@@ -261,9 +228,8 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
         
     }
     /**
-     * @brief Construct a Safe object, forwarding all arguments but the first (the default_construct_mutex tag) to
-     * construct the value object. This constructor will be selected even if the mutex can be constructed from the last
-     * argument of the parameter pack.
+     * @brief Construct a Safe object, forwarding all arguments but the last (the default_construct_mutex tag) to
+     * construct the value object.
      *
      * @tparam Args Deduced from args.
      * @param default_construct_mutex tag.
@@ -279,41 +245,35 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
     }
 
     /// Delete all copy/move construction/assignment, as these operations require locking the mutex under the covers.
-    /// Use copy(), assign() and other defined constructors to get the behavior you need with an explicit syntax.
     Safe(const Safe &) = delete;
     Safe(Safe &&) = delete;
     Safe &operator=(const Safe &) = delete;
     Safe &operator=(Safe &&) = delete;
 
-    template <template <typename> class LockType = DefaultReadOnlyLock, typename... LockArgs>
-    ReadAccess<LockType> readAccess(LockArgs &&...lockArgs) const
+/**
+ * @brief Lock the Safe object to get a ReadAccess object.
+ * 
+     * @tparam Args Deduced from args.
+     * @param args Perfect forwarding arguments to construct the lock object.
+*/
+    template <template <typename> class LockType = DefaultReadOnlyLockType, typename... LockArgs>
+    ReadAccess<LockType> readLock(LockArgs &&...lockArgs) const
     {
         using ReturnType = ReadAccess<LockType>;
         return EXPLICITLY_CONSTRUCT_RETURN_TYPE_IF_CPP17{*this, std::forward<LockArgs>(lockArgs)...};
     }
 
-    template <template <typename> class LockType = DefaultReadWriteLock, typename... LockArgs>
-    WriteAccess<LockType> writeAccess(LockArgs &&...lockArgs)
+/**
+ * @brief Lock the Safe object to get a WriteAccess object.
+ * 
+     * @tparam Args Deduced from args.
+     * @param args Perfect forwarding arguments to construct the lock object.
+*/
+    template <template <typename> class LockType = DefaultReadWriteLockType, typename... LockArgs>
+    WriteAccess<LockType> writeLock(LockArgs &&...lockArgs)
     {
         using ReturnType = WriteAccess<LockType>;
         return EXPLICITLY_CONSTRUCT_RETURN_TYPE_IF_CPP17{*this, std::forward<LockArgs>(lockArgs)...};
-    }
-
-    template <template <typename> class LockType = DefaultReadOnlyLock, typename... LockArgs>
-    RemoveRefValueType copy(LockArgs &&...lockArgs) const
-    {
-        return *readAccess<LockType>(std::forward<LockArgs>(lockArgs)...);
-    }
-
-    template <template <typename> class LockType = DefaultReadWriteLock, typename... LockArgs>
-    void assign(ConstValueReferenceType value, LockArgs &&...lockArgs)
-    {
-        *writeAccess<LockType>(std::forward<LockArgs>(lockArgs)...) = value;
-    }
-    template <template <typename> class LockType = DefaultReadWriteLock, typename... LockArgs>
-    void assign(RemoveRefValueType &&value, LockArgs &&...lockArgs)
-    {
-        *writeAccess<LockType>(std::forward<LockArgs>(lockArgs)...) = std::move(value);
     }
 
     /**
@@ -373,7 +333,7 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
  * @tparam SafeType The type of Safe object to give read-only access to.
  * @tparam LockType The type of lock.
  */
-template <typename SafeType, template <typename> class LockType = DefaultReadOnlyLock>
+template <typename SafeType, template <typename> class LockType = DefaultReadOnlyLockType>
 using ReadAccess = typename SafeType::template ReadAccess<LockType>;
 
 /**
@@ -382,7 +342,7 @@ using ReadAccess = typename SafeType::template ReadAccess<LockType>;
  * @tparam SafeType The type of Safe object to give read-write access to.
  * @tparam LockType The type of lock.
  */
-template <typename SafeType, template <typename> class LockType = DefaultReadWriteLock>
+template <typename SafeType, template <typename> class LockType = DefaultReadWriteLockType>
 using WriteAccess = typename SafeType::template WriteAccess<LockType>;
 } // namespace safe
 

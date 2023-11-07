@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022 Louis-Charles Caron
+// Copyright (c) 2019-2023 Louis-Charles Caron
 
 // This file is part of the safe library (https://github.com/LouisCharlesC/safe).
 
