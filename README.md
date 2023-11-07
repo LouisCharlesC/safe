@@ -128,7 +128,7 @@ safe::Safe<int> safeValue;
 ### Replace your lock objects by Access objects
 Access objects can either be read-write or read-only. The examples below show different ways to create a WriteAccess object, Replace Write/write by Read/read to get ReadAccess objects.
 ```c++
-// std::lock_guard<std::mutex> lock(mutex); // forgot about locks
+// std::lock_guard<std::mutex> lock(mutex);
 safe::WriteAccess<safe::Safe<int>> value(safeValue);
 safe::Safe<int>::WriteAccess<> value(safeValue); // equivalent to the above
 auto value = safeValue.writeAccess(); // nicer, but only with C++17 and later
