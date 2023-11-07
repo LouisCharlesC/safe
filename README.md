@@ -247,7 +247,7 @@ Here is how the trait works:
   - If IsReadOnly is true, the lock is read-only: constructinfg an Access object with this lock using Mode = AccessMode::ReadWrite will fail to compile.
   - If IsReadOnly is false, the result is the same as if no specialization exists.
 
-As an example, here is how to specialize the trait for std::shared_lock (you will find this exact code snippet in safe/accessmode.h):
+As an example, here is how to specialize the trait for std::shared_lock (you will find this exact code snippet in safe/access_mode.h):
 ```c++
 template<typename MutexType>
 struct safe::AccessTraits<std::shared_lock<MutexType>>

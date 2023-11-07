@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "accessmode.h"
-#include "mutableref.h"
+#include "access_mode.h"
+#include "mutable_ref.h"
 
 #include <type_traits>
 #include <utility>
