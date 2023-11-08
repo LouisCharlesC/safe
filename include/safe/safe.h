@@ -9,7 +9,7 @@
 
 #include "access_mode.h"
 #include "default_locks.h"
-#include "last.h"
+#include "meta.h"
 #include "mutable_ref.h"
 
 #include <type_traits>
@@ -209,7 +209,7 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
               typename std::enable_if<std::is_constructible<MutexType, Last<Args...>>::value, bool>::type = true>
     explicit Safe(Args &&...args)
         : Safe(UseLastArgumentForMutex(), std::forward_as_tuple(std::forward<Args>(args)...),
-               std::make_index_sequence<sizeof...(args) - 1>()) // delegate to a private constructor to split the
+               safe::impl::make_index_sequence<sizeof...(args) - 1>()) // delegate to a private constructor to split the
                                                                 // parameter pack
     {
     }
@@ -239,7 +239,7 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
              typename std::enable_if<std::is_same<const impl::DefaultConstructMutex&, Last<Args...>>::value, bool>::type = true>
     explicit Safe(Args &&...args)
         : Safe(LastArgumentIsATag(), std::forward_as_tuple(std::forward<Args>(args)...),
-               std::make_index_sequence<sizeof...(args) - 1>()) // delegate to a private constructor to split the
+               safe::impl::make_index_sequence<sizeof...(args) - 1>()) // delegate to a private constructor to split the
                                                                 // parameter pack
     {
     }
@@ -308,14 +308,14 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
   private:
     // The next two constructors are helper constructors to split the input arguments between the value and mutex constructors
     template <typename ArgsTuple, size_t... AllButLast>
-    explicit Safe(const UseLastArgumentForMutex, ArgsTuple &&args, std::index_sequence<AllButLast...>)
+    explicit Safe(const UseLastArgumentForMutex, ArgsTuple &&args, safe::impl::index_sequence<AllButLast...>)
         : m_mutex{std::get<sizeof...(AllButLast)>(
               std::forward<ArgsTuple>(args))},                            // use the last argument to conrtuct the mutex
           m_value(std::get<AllButLast>(std::forward<ArgsTuple>(args))...) // and the rest to construc the value
     {
     }
     template <typename ArgsTuple, size_t... AllButLast>
-    explicit Safe(const LastArgumentIsATag, ArgsTuple &&args, std::index_sequence<AllButLast...>)
+    explicit Safe(const LastArgumentIsATag, ArgsTuple &&args, safe::impl::index_sequence<AllButLast...>)
         : m_mutex{},                            // default construct the mutex since the last argument is a tag
           m_value(std::get<AllButLast>(std::forward<ArgsTuple>(args))...) // use the rest to construc the value
     {

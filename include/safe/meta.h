@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <cstddef>
+
 namespace safe
 {
 namespace impl
@@ -25,6 +27,25 @@ template <> struct Last<>
 {
     using type = void;
 };
+
+template<std::size_t... Is>
+struct index_sequence {};
+template<std::size_t N, std::size_t... Is>
+struct index_sequence<N, Is...>
+{
+    using type = typename index_sequence<N-1, N-1, Is...>::type;
+};
+template<std::size_t... Is>
+struct index_sequence<0, Is...>
+{
+    using type = index_sequence<Is...>;
+};
+
+template<std::size_t N>
+constexpr auto make_index_sequence()
+{
+    return typename index_sequence<N>::type();
+}
 } // namespace impl
 
 template <typename... Ts> using Last = typename impl::Last<Ts...>::type;
