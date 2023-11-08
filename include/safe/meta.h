@@ -42,9 +42,9 @@ struct index_sequence<0, Is...>
 };
 
 template<std::size_t N>
-constexpr auto make_index_sequence()
+constexpr typename index_sequence<N>::type make_index_sequence()
 {
-    return typename index_sequence<N>::type();
+    return {};
 }
 } // namespace impl
 
