@@ -20,18 +20,25 @@ enum class AccessMode
     ReadWrite
 };
 
+// Base template: most LockTypes are not read only.
+// Specialize this template if you want to force a LockType to be read only.
+// If you specialize this template, consider using the pattern described in the 
+// test_default_locks.cpp file to avoid ill-formed programs!
 template <typename LockType> struct AccessTraits
 {
     static constexpr bool IsReadOnly = false;
 };
+// Partial specialization for lock_guard: not read only.
 template <typename MutexType> struct AccessTraits<std::lock_guard<MutexType>>
 {
     static constexpr bool IsReadOnly = false;
 };
+// Partial specialization for unique_lock: not read only.
 template <typename MutexType> struct AccessTraits<std::unique_lock<MutexType>>
 {
     static constexpr bool IsReadOnly = false;
 };
+// Partial specialization for shared_lock: read only!
 #if __cplusplus >= 201402L
 template <typename MutexType> struct AccessTraits<std::shared_lock<MutexType>>
 {
