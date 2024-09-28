@@ -181,8 +181,12 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
     /// Reference to MutexType.
     using MutexReferenceType = RemoveRefMutexType &;
 
-    struct UseLastArgumentForMutex {};
-    struct LastArgumentIsATag {};
+    struct UseLastArgumentForMutex
+    {
+    };
+    struct LastArgumentIsATag
+    {
+    };
 
   public:
     /// Aliases to ReadAccess and WriteAccess classes for this Safe class.
@@ -210,7 +214,7 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
     explicit Safe(Args &&...args)
         : Safe(UseLastArgumentForMutex(), std::forward_as_tuple(std::forward<Args>(args)...),
                safe::impl::make_index_sequence<sizeof...(args) - 1>()) // delegate to a private constructor to split the
-                                                                // parameter pack
+                                                                       // parameter pack
     {
     }
     /**
@@ -221,11 +225,11 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
      * @param args Perfect forwarding arguments to construct the value object.
      */
     template <typename... Args,
-              typename std::enable_if<!std::is_same<const impl::DefaultConstructMutex&, Last<Args...>>::value &&
-                                        !std::is_constructible<MutexType, Last<Args...>>::value, bool>::type = true>
+              typename std::enable_if<!std::is_same<const impl::DefaultConstructMutex &, Last<Args...>>::value &&
+                                          !std::is_constructible<MutexType, Last<Args...>>::value,
+                                      bool>::type = true>
     explicit Safe(Args &&...args) : m_mutex{}, m_value(std::forward<Args>(args)...)
-    { 
-        
+    {
     }
     /**
      * @brief Construct a Safe object, forwarding all arguments but the last (the default_construct_mutex tag) to
@@ -236,11 +240,12 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
      * @param args Perfect forwarding arguments to construct the value object.
      */
     template <typename... Args,
-             typename std::enable_if<std::is_same<const impl::DefaultConstructMutex&, Last<Args...>>::value, bool>::type = true>
+              typename std::enable_if<std::is_same<const impl::DefaultConstructMutex &, Last<Args...>>::value,
+                                      bool>::type = true>
     explicit Safe(Args &&...args)
         : Safe(LastArgumentIsATag(), std::forward_as_tuple(std::forward<Args>(args)...),
                safe::impl::make_index_sequence<sizeof...(args) - 1>()) // delegate to a private constructor to split the
-                                                                // parameter pack
+                                                                       // parameter pack
     {
     }
 
@@ -250,12 +255,12 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
     Safe &operator=(const Safe &) = delete;
     Safe &operator=(Safe &&) = delete;
 
-/**
- * @brief Lock the Safe object to get a ReadAccess object.
- * 
+    /**
+     * @brief Lock the Safe object to get a ReadAccess object.
+     *
      * @tparam Args Deduced from args.
      * @param args Perfect forwarding arguments to construct the lock object.
-*/
+     */
     template <template <typename> class LockType = DefaultReadOnlyLockType, typename... LockArgs>
     ReadAccess<LockType> readLock(LockArgs &&...lockArgs) const
     {
@@ -263,12 +268,12 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
         return EXPLICITLY_CONSTRUCT_RETURN_TYPE_IF_CPP17{*this, std::forward<LockArgs>(lockArgs)...};
     }
 
-/**
- * @brief Lock the Safe object to get a WriteAccess object.
- * 
+    /**
+     * @brief Lock the Safe object to get a WriteAccess object.
+     *
      * @tparam Args Deduced from args.
      * @param args Perfect forwarding arguments to construct the lock object.
-*/
+     */
     template <template <typename> class LockType = DefaultReadWriteLockType, typename... LockArgs>
     WriteAccess<LockType> writeLock(LockArgs &&...lockArgs)
     {
@@ -306,18 +311,19 @@ template <typename ValueType, typename MutexType = std::mutex> class Safe
     }
 
   private:
-    // The next two constructors are helper constructors to split the input arguments between the value and mutex constructors
+    // The next two constructors are helper constructors to split the input arguments between the value and mutex
+    // constructors
     template <typename ArgsTuple, size_t... AllButLast>
     explicit Safe(const UseLastArgumentForMutex, ArgsTuple &&args, safe::impl::index_sequence<AllButLast...>)
         : m_mutex{std::get<sizeof...(AllButLast)>(
-              std::forward<ArgsTuple>(args))},                            // use the last argument to conrtuct the mutex
-          m_value(std::get<AllButLast>(std::forward<ArgsTuple>(args))...) // and the rest to construc the value
+              std::forward<ArgsTuple>(args))},                            // use the last argument to constuct the mutex
+          m_value(std::get<AllButLast>(std::forward<ArgsTuple>(args))...) // and the rest to construct the value
     {
     }
     template <typename ArgsTuple, size_t... AllButLast>
     explicit Safe(const LastArgumentIsATag, ArgsTuple &&args, safe::impl::index_sequence<AllButLast...>)
-        : m_mutex{},                            // default construct the mutex since the last argument is a tag
-          m_value(std::get<AllButLast>(std::forward<ArgsTuple>(args))...) // use the rest to construc the value
+        : m_mutex{}, // default construct the mutex since the last argument is a tag
+          m_value(std::get<AllButLast>(std::forward<ArgsTuple>(args))...) // use the rest to construct the value
     {
     }
 

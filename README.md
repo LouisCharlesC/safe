@@ -67,7 +67,7 @@ safe::Safe<int&, std::mutex&>;
 ```
 See [this section](#with-legacy-code) for an example of using reference types to deal with legacy code.
 #### Flexibly construct the value object and mutex
-The Safe constructor accepts the arguments needed to construct the value and the mute object. The last argument is forwarded to the mutex constructor and the rest to the value's.  
+The Safe constructor accepts the arguments needed to construct the value and the mutex object. The last argument is forwarded to the mutex constructor and the rest to the value's.  
 If the last argument cannot be used to construct the mutex, *safe* detects it and forwards everything to the value constructor.  
 If you explicitely do not want to use the last argument to construct the mutex object, use the safe::default_construct_mutex tag as last argument.  
 Examples:
@@ -79,7 +79,6 @@ safe::Safe<std::pair<int,int>, std::mutex &> valueDefault(mutex);  // mutex is i
 safe::Safe<std::pair<int,int>, std::mutex> mutexDefault(42, 24); // mutex is default constructed, and value is initialized
 safe::Safe<std::pair<int,int>, std::mutex> mutexDefaultTag(42, 24, safe::default_construct_mutex); // mutex is default constructed, and value is initialized
 ```
-See 
 #### Flexibly construct the Lock objects
 The Access constructors have a variadic parameter pack that is forwarded to the Lock object's constructor. This can be used to pass in standard lock tags such as std::adopt_lock, but also to construct your custom locks that may require additionnal arguments than just the mutex.   
 There are many equivalent ways to get an Access object from a Safe object. Choose the syntax you prefer:
